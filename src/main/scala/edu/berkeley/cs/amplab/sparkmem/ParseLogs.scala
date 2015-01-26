@@ -16,6 +16,7 @@ object ParseLogs {
     replayBus.addListener(blockAccessListener)
     // FIXME: AddListener
     replayBus.replay()
-    println("UsageInfo = " + blockAccessListener.usageInfo)
+    println("UsageInfo (15) = " + blockAccessListener.usageInfo.summary(15))
+    println("UsageInfo (4) = " + blockAccessListener.usageInfo.summary(4))
   }
 }

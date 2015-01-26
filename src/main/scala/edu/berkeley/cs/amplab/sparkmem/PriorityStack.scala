@@ -4,8 +4,6 @@ import scala.collection.mutable.Buffer
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
 
-import org.apache.spark.Logging
-
 object PriorityStack {
   final class Item(
     val key: String,
@@ -134,7 +132,7 @@ final class PriorityStack extends Logging {
     process(Write, blockId, Some(size), None)
   }
 
-  def getCostCurve: Seq[(Long, Double)] = {
+  def getCostCurve: CostCurve = {
     val sortedLog = costLog.clone.sortBy(-_._1)
     var prevSize = sortedLog.head._1
     var curSize = prevSize
@@ -155,7 +153,7 @@ final class PriorityStack extends Logging {
     if (result.size == 0) {
       result += 0L -> totalCost
     }
-    return result
+    new CostCurve(result)
   }
 
   def sanityCheck(): Unit = {

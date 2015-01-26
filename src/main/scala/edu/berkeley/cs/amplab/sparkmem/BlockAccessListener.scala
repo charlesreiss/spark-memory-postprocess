@@ -1,7 +1,7 @@
 package edu.berkeley.cs.amplab.sparkmem
 
 import org.apache.spark.{TaskEndReason, Success => TaskEndSuccess}
-import org.apache.spark.executor.{BlockAccess, BlockAccessType}
+import org.apache.spark.executor.{TaskMetrics, BlockAccess, BlockAccessType}
 import org.apache.spark.scheduler.SparkListener
 import org.apache.spark.scheduler.{SparkListenerApplicationStart,
                                    SparkListenerApplicationEnd,
@@ -9,6 +9,13 @@ import org.apache.spark.scheduler.{SparkListenerApplicationStart,
 import org.apache.spark.storage.{BlockId, BlockStatus, RDDBlockId, ShuffleBlockId, BroadcastBlockId}
 
 import scala.collection.mutable
+
+object BlockAccessListener {
+  case class ShuffleWritePiece(shuffleId: Int, piece: Int)
+  // A reduce task might combine multiple shuffles, potentially with different partitioning.
+  // We treat each case seperately for the purpose of figuring out the size
+  case class ShuffleReadPiece(shuffleIds: List[Int], pieceStarts: List[Int], pieceEnds: List[Int])
+}
 
 class BlockAccessListener extends SparkListener with Logging {
   private var didStart = false
@@ -23,6 +30,47 @@ class BlockAccessListener extends SparkListener with Logging {
   // FIXME: Track block size sources
   private val blockSizes: mutable.Map[BlockId, Long] = mutable.Map.empty[BlockId, Long]
   // FIXME: Track shuffle in-memory sizes
+
+  // FIXME: Track shuffle on-disk sizes
+  // To do this:
+  //    Maintain taskId -> stageId map (for unended tasks)
+  import BlockAccessListener._
+  private val seenShuffleWritePieces = mutable.Set.empty[ShuffleWritePiece]
+  private val shuffleWriteSize = mutable.Map.empty[Int, Long]
+  private val seenShuffleReadPieces = mutable.Set.empty[ShuffleReadPiece]
+  private def nameShuffle(shuffleId: Int): String = "shuffle#" + shuffleId
+  private def accumulateShuffle(metrics: TaskMetrics) {
+    val writeSize = metrics.shuffleWriteMetrics.map(_.shuffleBytesWritten).getOrElse(0L)
+    // FIXME: This includes BOTH ends of the shuffle
+    val memorySize = metrics.shuffleMemoryMetrics.map(_.shuffleOutputBytes).getOrElse(0L)
+    val haveRead = metrics.readShuffles.isDefined
+    metrics.readShuffles.map { shuffleParts =>
+      val shuffleIds = shuffleParts.map(_._1).toList
+      val startPieces = shuffleParts.map(_._2).toList
+      val endPieces = shuffleParts.map(_._3).toList
+      shuffleIds.foreach { shuffleId => 
+        shuffleStack.read(nameShuffle(shuffleId), Some(shuffleWriteSize(shuffleId)),
+                          shuffleWriteSize(shuffleId).toDouble)
+      }
+      val part = ShuffleReadPiece(shuffleIds, startPieces, endPieces)
+      topShuffleMemorySizes.insert(memorySize)
+    }
+    metrics.writtenShuffles.map { shuffleParts => 
+      assert(shuffleParts.size == 1)
+      shuffleParts.map { case (shuffleId, mapId) => 
+        val writePiece = ShuffleWritePiece(shuffleId, mapId)
+        if (!seenShuffleWritePieces.contains(writePiece)) {
+          shuffleWriteSize(shuffleId) = shuffleWriteSize.getOrElse(shuffleId, 0L) + writeSize
+          topShuffleDiskBlockSizes.insert(writeSize)
+          if (!haveRead) {
+            topShuffleMemorySizes.insert(memorySize)
+          }
+        }
+        shuffleStack.write(nameShuffle(shuffleId), shuffleWriteSize(shuffleId))
+      }
+    }
+  }
+  // As a simplification we assume that no task writes to multiple shuffles.
 
   def usageInfo: UsageInfo = UsageInfo(
     rddStack.getCostCurve,
@@ -111,6 +159,8 @@ class BlockAccessListener extends SparkListener with Logging {
     if (taskEnd.reason == TaskEndSuccess) {
       val metrics = taskEnd.taskMetrics
       // TODO: Process shuffle{Read,Write,Memory}Metrics.
+
+      accumulateShuffle(metrics)
 
       /* Infer block sizes from updated blocks. */
       for ((blockId, blockStatus) <- metrics.updatedBlocks.getOrElse(Nil)) {

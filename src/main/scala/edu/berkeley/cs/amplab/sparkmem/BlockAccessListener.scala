@@ -5,7 +5,8 @@ import org.apache.spark.executor.{TaskMetrics, BlockAccess, BlockAccessType}
 import org.apache.spark.scheduler.SparkListener
 import org.apache.spark.scheduler.{SparkListenerApplicationStart,
                                    SparkListenerApplicationEnd,
-                                   SparkListenerTaskEnd}
+                                   SparkListenerTaskEnd,
+                                   SparkListenerBroadcastCreated}
 import org.apache.spark.storage.{BlockId, BlockStatus, RDDBlockId, ShuffleBlockId, BroadcastBlockId}
 
 import scala.collection.mutable
@@ -15,6 +16,9 @@ object BlockAccessListener {
   // A reduce task might combine multiple shuffles, potentially with different partitioning.
   // We treat each case seperately for the purpose of figuring out the size
   case class ShuffleReadPiece(shuffleIds: List[Int], pieceStarts: List[Int], pieceEnds: List[Int])
+
+  // Broadcasts smaller than this size are dropped entirely.
+  val MINIMUM_BROADCAST_SIZE: Long = 128L * 1024L
 }
 
 class BlockAccessListener extends SparkListener with Logging {
@@ -162,6 +166,15 @@ class BlockAccessListener extends SparkListener with Logging {
 
       accumulateShuffle(metrics)
 
+      metrics.accessedBroadcasts.foreach { case broadcasts =>
+        broadcasts.foreach { case broadcastId =>
+          val broadcastSize = sizeForBlock(BroadcastBlockId(broadcastId))
+          if (broadcastSize > BlockAccessListener.MINIMUM_BROADCAST_SIZE) {
+            recordAccess(BroadcastBlockId(broadcastId), BlockAccess(BlockAccessType.Read))
+          }
+        }
+      }
+
       /* Infer block sizes from updated blocks. */
       for ((blockId, blockStatus) <- metrics.updatedBlocks.getOrElse(Nil)) {
         recordUpdate(blockId, blockStatus)
@@ -202,6 +215,19 @@ class BlockAccessListener extends SparkListener with Logging {
   override def onApplicationStart(applicationStart: SparkListenerApplicationStart) {
     assert(!didStart) /* Don't support multiple applications yet. */
     didStart = true
+  }
+
+  override def onBroadcastCreated(broadcastCreated: SparkListenerBroadcastCreated) {
+    assert(didStart)
+    val blockId = BroadcastBlockId(broadcastCreated.id)
+    // FIXME: use serialized size separately?
+    assert(broadcastCreated.memorySize.getOrElse(0L) + broadcastCreated.serializedSize.getOrElse(0L) > 0)
+    broadcastCreated.memorySize.foreach(recordSize(blockId, _))
+    broadcastCreated.serializedSize.foreach(recordSize(blockId, _))
+    if (sizeForBlock(blockId) >= BlockAccessListener.MINIMUM_BROADCAST_SIZE) {
+      val dummyAccess = BlockAccess(BlockAccessType.Write)
+      recordAccess(blockId, dummyAccess)
+    }
   }
 
   /* FIXME: Use onUnpersistRDD events? */

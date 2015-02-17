@@ -44,12 +44,15 @@ final class PriorityStack extends Logging {
 
   @inline
   private def insert(key: String, size: Long, priority: Long): Unit = {
+    logDebug(s"insert($key, $size, $priority)")
     val maybeOldNode = contained.get(key)
     val oldSize = maybeOldNode.map(_.size).getOrElse(0L)
+    logDebug(s"oldSize=$oldSize")
     totalSize += size - oldSize
     var node = maybeOldNode.getOrElse(
       new PriorityStack.Item(key, size, priority, null, null)
     )
+    node.size = size // in case old node
     /* remove old node */
     if (node.next != null) {
       node.next.prev = node.prev
@@ -80,6 +83,7 @@ final class PriorityStack extends Logging {
       node.prev = null
     }
     contained.put(key, node)
+    sanityCheck()
   }
 
   sealed abstract class AccessType
@@ -100,6 +104,7 @@ final class PriorityStack extends Logging {
       var oldSize: Option[Long] = None
       maybeTheNode match {
       case Some(theNode) =>
+        logDebug(s"Adding entry to cost log $depth->$cost")
         costLog += depth -> cost
         oldSize = Some(theNode.size)
       case None =>
@@ -130,9 +135,11 @@ final class PriorityStack extends Logging {
 
   def write(blockId: String, size: Long) {
     process(Write, blockId, Some(size), None)
+    process(Read, blockId, Some(size), None)
   }
 
   def getCostCurve: CostCurve = {
+    sanityCheck()
     val sortedLog = costLog.clone.sortBy(-_._1)
     var prevSize = sortedLog.head._1
     var curSize = prevSize
@@ -144,6 +151,7 @@ final class PriorityStack extends Logging {
     for ((size, cost) <- sortedLog) {
       if (size != prevSize) {
         /* output prevSize -> cost unless prevSize  == Long.MAX_VALUE */
+        logDebug(s"Adding entry to curve $size -> $totalCost")
         result += size -> totalCost
         prevSize = curSize
         curSize = size

@@ -6,6 +6,7 @@ import org.apache.spark.util.Utils
 private[sparkmem]
 class ParseLogArguments(conf: SparkConf, args: Array[String]) {
   var logDir: String = null
+  var rddTrace: String = null
   private var propertiesFile: String =  null
 
   parse(args.toList)
@@ -14,6 +15,9 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
     args match {
       case ("--logDir" | "-l") :: value :: tail =>
         logDir = value
+        parse(tail)
+      case "--rddTrace" :: value :: tail =>
+        rddTrace = value
         parse(tail)
 
       case Nil =>
@@ -31,6 +35,8 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
       |Options:
       |  --logDir LOG-DIRECTORY
       |    Location of the application in question's output.
+      |  --rddTrace OUTPUT-FILE
+      |    Location to write raw RDD access trace (for debugging)
       """.stripMargin)
     System.exit(exitCode)
   }

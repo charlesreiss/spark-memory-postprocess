@@ -6,7 +6,16 @@ case class UsageInfo(
   val shuffleCostCurve: CostCurve,
   val topRddSizes: Seq[Long],
   val topAggregatorMemorySizes: Seq[Long],
-  val topAggregatorDiskSizes: Seq[Long]
+  val topAggregatorDiskSizes: Seq[Long],
+
+  val totalSpilledMemory: Long,
+  val totalSpilledDisk: Long,
+  val rddBlockCount: Long,
+  val rddSizeIncrements: Long,
+  val totalRecomputed: Long,
+  val totalRecomputedUnknown: Long,
+  val totalRecomputedZero: Long,
+  val totalComputedDropped: Long
 ) {
   def rddAllSize: Long = rddCostCurve.canonicalSize
   def broadcastAllSize: Long = broadcastCostCurve.canonicalSize
@@ -20,6 +29,15 @@ case class UsageInfo(
     s"RDD: ${bytesToString(rddAllSize)}; Broadcast: ${bytesToString(broadcastAllSize)}; " +
     s"Shuffle [storage]: ${bytesToString(shuffleAllSize)}; " +
     s"Active: ${bytesToString(rddActiveSize(cores))} RDD + " +
-    s"${bytesToString(shuffleActiveSize(cores))} shuffle"
+    s"${bytesToString(shuffleActiveSize(cores))} shuffle; " +
+    s"spilled mem ${bytesToString(totalSpilledMemory)} disk ${bytesToString(totalSpilledDisk)}"
+
+  def csvHeader: String =
+    s"cores,rdd,broadcast,shuffleStorage,rddActive,shuffleActive,spilledMem,spilledDisk,blockCount,sizeIncrements," +
+    s"totalRecomputed,totalRecomputedUnknown,totalRecomputedZero,totalComputedDropped"
+  def csvLine(cores: Int): String =
+    s"$cores,$rddAllSize,$broadcastAllSize,$shuffleAllSize,${rddActiveSize(cores)},${shuffleActiveSize(cores)}," +
+    s"$totalSpilledMemory,$totalSpilledDisk,$rddBlockCount,$rddSizeIncrements,$totalRecomputed," +
+    s"$totalRecomputedUnknown,$totalRecomputedZero,$totalComputedDropped"
 }
 

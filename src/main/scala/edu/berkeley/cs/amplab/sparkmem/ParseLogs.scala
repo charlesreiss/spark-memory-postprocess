@@ -15,6 +15,7 @@ object ParseLogs {
     val fs = FileSystem.get(new Path(args.logDir).toUri, SparkHadoopUtil.get.newConfiguration(conf))
     val replayBus = ReplayListenerBus.fromLogDirectory(new Path(args.logDir), fs)
     val blockAccessListener = new BlockAccessListener
+    blockAccessListener.skipStacks = args.skipStacks
     Option(args.rddTrace).foreach { rddTracePath => 
       blockAccessListener.recordLogFile = new PrintWriter(new File(rddTracePath))
     }
@@ -22,9 +23,17 @@ object ParseLogs {
     // FIXME: AddListener
     replayBus.replay()
     Option(blockAccessListener.recordLogFile).foreach(_.close)
-    println("RDD block count = " + blockAccessListener.rddBlockCount)
-    println("RDD size incr = " + blockAccessListener.sizeIncrements)
-    println("UsageInfo (15) = " + blockAccessListener.usageInfo.summary(15))
-    println("UsageInfo (4) = " + blockAccessListener.usageInfo.summary(4))
+    if (args.machineReadable) {
+      val usageInfo = blockAccessListener.usageInfo
+      println(usageInfo.csvHeader)
+      for (i <- 1 to 16) {
+        println(usageInfo.csvLine(i))
+      }
+    } else {
+      println("RDD block count = " + blockAccessListener.rddBlockCount)
+      println("RDD size incr = " + blockAccessListener.sizeIncrements)
+      println("UsageInfo (15) = " + blockAccessListener.usageInfo.summary(15))
+      println("UsageInfo (4) = " + blockAccessListener.usageInfo.summary(4))
+    }
   }
 }

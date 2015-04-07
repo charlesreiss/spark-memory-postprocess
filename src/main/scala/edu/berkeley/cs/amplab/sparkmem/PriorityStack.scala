@@ -19,18 +19,58 @@ final class PriorityStack extends Logging {
   private var contained = HashMap.empty[String, PriorityStack.Item]
   private var totalSize = 0L
   private var time: Long = 0
-  private val costLog =  Buffer[(Long, Double)](0L -> 0.0)
-  @inline
-  private def findNode(key: String):
+  private val costLog = Buffer[(Long, Double)](0L -> 0.0)
+  private var maybeLastLookup: Option[PriorityStack.Item] = None
+  private var lastCost: Long = 0L
+
+  private def updateCacheForMove(causeKey: String, oldPriority: Long, newPriority: Long, newSize: Long, deltaSize: Long) {
+    maybeLastLookup.foreach { case lastLookup =>
+      if (newPriority > lastLookup.priority && oldPriority < lastLookup.priority) {
+        lastCost += newSize
+        logDebug(s"updating cost (moved) += $newSize to $lastCost for ${lastLookup.key} (caused by $causeKey moving from $oldPriority over ${lastLookup.priority} to $newPriority)")
+      } else if (oldPriority == lastLookup.priority) {
+        maybeLastLookup = None
+        logDebug(s"uncaching ${lastLookup.key}")
+      } else if (newPriority > lastLookup.priority && oldPriority > lastLookup.priority) {
+        lastCost += deltaSize
+        logDebug(s"updating cost (resized) += $deltaSize to $lastCost for ${lastLookup.key}")
+      } else if (newPriority < lastLookup.priority && oldPriority < lastLookup.priority) {
+        // do nothing
+      } else {
+        logError("Unhandled case")
+      }
+    }
+  }
+
+  private def maybeCacheForLookup(theNode: PriorityStack.Item, theCost: Long): Unit = {
+    logDebug(s"caching ${theNode.key} at ${theCost}")
+    maybeLastLookup = Some(theNode)
+    lastCost = theCost
+  }
+
+  @inline def findNodeCached(key: String, cacheFind: Boolean = false):
         (Option[PriorityStack.Item], Long, Option[PriorityStack.Item]) = {
     contained.get(key) match {
-    case Some(resultItem) =>
+    case Some(resultItem) => 
       var size = resultItem.size
+      val (startSize, startPoint) =
+        maybeLastLookup.filter { last => last.priority > resultItem.priority }.
+                        map { last => (lastCost, last) }.
+                        getOrElse((0L -> head))
+      logDebug(s"Using ($startSize @ ${startPoint.key})")
       if (head != resultItem) {
-        var current = head
+        size += startSize
+        var current = startPoint
+        var previous = current 
         while (current.next != resultItem) {
+          logDebug(s"Continue past ${current.key} adding ${current.size}")
           size += current.size
+          previous = current
           current = current.next
+          assert(previous.priority > current.priority)
+        }
+        if (current != previous && cacheFind) {
+          maybeCacheForLookup(current, size)
         }
         size += current.size
         return (Some(resultItem), size, Some(current))
@@ -43,16 +83,59 @@ final class PriorityStack extends Logging {
   }
 
   @inline
+  private def findNodeUncached(key: String, cacheFind: Boolean = false):
+        (Option[PriorityStack.Item], Long, Option[PriorityStack.Item]) = {
+    contained.get(key) match {
+    case Some(resultItem) =>
+      var size = resultItem.size
+      if (head != resultItem) {
+        var current = head
+        var previous = current
+        while (current.next != resultItem) {
+          size += current.size
+          previous = current
+          current = current.next
+          assert(previous.priority > current.priority, s"${previous.key} @ ${previous.priority} versus ${current.key} @ ${current.priority}")
+        }
+        if (current != previous && cacheFind) {
+          maybeCacheForLookup(current, size)
+        }
+        size += current.size
+        return (Some(resultItem), size, Some(current))
+      } else {
+        return (Some(resultItem), size, None)
+      }
+    case None =>
+      return (None, totalSize, None)
+    }
+  }
+
+  @inline def findNodeChecked(key: String):
+        (Option[PriorityStack.Item], Long, Option[PriorityStack.Item]) = {
+     val resultOne = findNodeCached(key, false)
+     val resultTwo = findNodeUncached(key, true)
+     assert(resultOne == resultTwo, s"$key: [cached] ${resultOne._3.map(_.key)} ${resultOne._2}/[uncached] ${resultTwo._2}")
+     return resultOne
+  }
+
+  @inline def findNode(key: String): 
+        (Option[PriorityStack.Item], Long, Option[PriorityStack.Item]) = findNodeCached(key, true)
+
+  @inline
   private def insert(key: String, size: Long, priority: Long): Unit = {
     logDebug(s"insert($key, $size, $priority)")
     val maybeOldNode = contained.get(key)
     val oldSize = maybeOldNode.map(_.size).getOrElse(0L)
     logDebug(s"oldSize=$oldSize")
     totalSize += size - oldSize
+    maybeOldNode.foreach { oldNode => 
+      updateCacheForMove(key, oldNode.priority, priority, size, size - oldNode.size)
+    }
     var node = maybeOldNode.getOrElse(
       new PriorityStack.Item(key, size, priority, null, null)
     )
     node.size = size // in case old node
+    node.priority = priority
     /* remove old node */
     if (node.next != null) {
       node.next.prev = node.prev

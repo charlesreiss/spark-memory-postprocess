@@ -8,14 +8,23 @@ import org.apache.spark.scheduler.ReplayListenerBus
 
 import java.io.{File, PrintWriter}
 
+import org.apache.log4j.BasicConfigurator
+
+import org.apache.log4j.{Logger => L4JLogger, Level => L4JLevel}
+
 object ParseLogs {
   def main(rawArgs: Array[String]) {
     val conf = new SparkConf
     val args = new ParseLogArguments(conf, rawArgs)
+    BasicConfigurator.configure()
+    if (args.debug) {
+      L4JLogger.getRootLogger.setLevel(L4JLevel.DEBUG)
+    } 
     val fs = FileSystem.get(new Path(args.logDir).toUri, SparkHadoopUtil.get.newConfiguration(conf))
     val replayBus = ReplayListenerBus.fromLogDirectory(new Path(args.logDir), fs)
     val blockAccessListener = new BlockAccessListener
-    blockAccessListener.skipStacks = args.skipStacks
+    blockAccessListener.skipExtraStacks = args.skipStacks || args.skipStacksExceptRDD
+    blockAccessListener.skipRDDStack = args.skipStacks && !args.skipStacksExceptRDD
     Option(args.rddTrace).foreach { rddTracePath => 
       blockAccessListener.recordLogFile = new PrintWriter(new File(rddTracePath))
     }

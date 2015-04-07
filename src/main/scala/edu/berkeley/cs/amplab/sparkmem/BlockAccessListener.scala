@@ -21,7 +21,8 @@ object BlockAccessListener {
 class BlockAccessListener extends SparkListener with Logging {
   val sortTasks = true
   var recordLogFile: PrintWriter = null
-  var skipStacks = false
+  var skipExtraStacks = false
+  var skipRDDStack = false
   private val pendingTasks = mutable.Buffer.empty[SparkListenerTaskEnd]
   private var didStart = false
   private val rddStack = new PriorityStack
@@ -57,7 +58,7 @@ class BlockAccessListener extends SparkListener with Logging {
   private val shuffleWriteSize = mutable.Map.empty[Int, Long]
   private val seenShuffleReadPieces = mutable.Set.empty[BlockId]
   private val writtenBlocks = mutable.Set.empty[BlockId]
-  private def nameShuffle(shuffleId: Int): String = "shuffle#" + shuffleId
+  private def nameShuffle(shuffleId: Int): String = "shuffle_" + shuffleId + "_0_0"
   private def shuffleReadIds(
       accessedBlocks: Option[Seq[(BlockId, BlockAccess)]]): Seq[ShuffleBlockId] = {
     accessedBlocks.getOrElse(Nil).filter { case (blockId, access) =>
@@ -70,16 +71,17 @@ class BlockAccessListener extends SparkListener with Logging {
       blockId.isShuffle && access.accessType == BlockAccessType.Read
     }.map(_._1.asInstanceOf[ShuffleBlockId])
   }
-  private def accumulateShuffle(metrics: TaskMetrics) {
+  private def accumulateShuffle(taskId: Long, metrics: TaskMetrics) {
     val writeSize = metrics.shuffleWriteMetrics.map(_.shuffleBytesWritten).getOrElse(0L)
     // FIXME: This includes BOTH ends of the shuffle
     val memorySize = metrics.shuffleMemoryMetrics.map(_.shuffleOutputBytes).getOrElse(0L)
     var hadRead = false
+    logDebug(s"Shuffle for TID $taskId: wrote $writeSize; produced $memorySize in memory")
     totalSpilledMemory += metrics.memoryBytesSpilled
     totalSpilledDisk += metrics.diskBytesSpilled
     shuffleReadIds(metrics.accessedBlocks).foreach { blockId =>
       assert(metrics.shuffleMemoryMetrics.isDefined)
-      if (!skipStacks) {
+      if (!skipExtraStacks) {
         shuffleStack.read(nameShuffle(blockId.shuffleId), Some(shuffleWriteSize.getOrElse(blockId.shuffleId, 0L)),
                           shuffleWriteSize.getOrElse(blockId.shuffleId, 0L).toDouble)
       }
@@ -99,7 +101,7 @@ class BlockAccessListener extends SparkListener with Logging {
           topShuffleMemorySizes.insert(memorySize)
         }
       }
-      if (!skipStacks) {
+      if (!skipExtraStacks) {
         shuffleStack.write(nameShuffle(shuffleId), shuffleWriteSize(shuffleId))
       }
     }
@@ -155,7 +157,10 @@ class BlockAccessListener extends SparkListener with Logging {
     size
   }
 
-  private def recordedBlockIdForBlock(blockId: BlockId): BlockId = blockId
+  private def recordedBlockIdForBlock(blockId: BlockId): BlockId = blockId match {
+    case ShuffleBlockId(shuffleId, _, _) => ShuffleBlockId(shuffleId, 0, 0)
+    case _ => blockId
+  }
 
   private def recordStatusSize(blockId: BlockId, blockStatus: BlockStatus) {
     if (blockStatus.storageLevel.useMemory) {
@@ -192,8 +197,9 @@ class BlockAccessListener extends SparkListener with Logging {
       }
     }
     val whichStack = blockId match {
-      case BroadcastBlockId(_, _) => Some(broadcastStack)
-      case ShuffleBlockId(_, _, _) => Some(shuffleStack)
+      case BroadcastBlockId(_, _) => if (skipExtraStacks) None else Some(broadcastStack)
+      // Shuffles are handled in accumulateShuffle().
+      case ShuffleBlockId(_, _, _) => None
       case RDDBlockId(_, _) => {
         Option(recordLogFile).foreach { stream => 
           val accessType = if (blockAccess.accessType == BlockAccessType.Read) "READ" else "WRITE"
@@ -201,27 +207,29 @@ class BlockAccessListener extends SparkListener with Logging {
           val recordTaskId = taskId.getOrElse(-1L)
           recordLogFile.println(s"$accessType ${blockId.name} $accessSize $recordTaskId")
         }
-        Some(rddStack)
+        if (skipRDDStack) {
+          None
+        } else {
+          Some(rddStack)
+        }
       }
       case _ => {
         logError("Unknown block ID type for " + rawBlockId)
         None
       }
     }
-    if (!skipStacks) {
-      whichStack match {
-        case Some(stack) =>
-          if (blockAccess.accessType == BlockAccessType.Read) {
-            assert(sizeForBlock(blockId) >= 0)
-            assert(costForBlock(blockId) >= 0.0)
-            stack.read(nameBlock(blockId), Some(sizeForBlock(blockId)), costForBlock(blockId))
-          } else {
-            assert(sizeForBlock(blockId) >= 0)
-            assert(costForBlock(blockId) >= 0.0)
-            stack.write(nameBlock(blockId), sizeForBlock(blockId))
-          }
-        case None => {}
-      }
+    whichStack match {
+      case Some(stack) =>
+        if (blockAccess.accessType == BlockAccessType.Read) {
+          assert(sizeForBlock(blockId) >= 0)
+          assert(costForBlock(blockId) >= 0.0)
+          stack.read(nameBlock(blockId), Some(sizeForBlock(blockId)), costForBlock(blockId))
+        } else {
+          assert(sizeForBlock(blockId) >= 0)
+          assert(costForBlock(blockId) >= 0.0)
+          stack.write(nameBlock(blockId), sizeForBlock(blockId))
+        }
+      case None => {}
     }
   }
 
@@ -239,7 +247,7 @@ class BlockAccessListener extends SparkListener with Logging {
       val metrics = taskEnd.taskMetrics
       // TODO: Process shuffle{Read,Write,Memory}Metrics.
 
-      accumulateShuffle(metrics)
+      accumulateShuffle(taskEnd.taskInfo.taskId, metrics)
 
       /* Infer block sizes from updated blocks. */
       for ((blockId, blockStatus) <- metrics.updatedBlocks.getOrElse(Nil)) {

@@ -16,7 +16,7 @@ class CostCurve(data: Seq[(Long, Double)]) extends Logging {
       val atIdx = rawCurve(idx)._2
       val atFrom = rawCurve(from)._2
       val atTo = rawCurve(to)._2
-      logInfo(s"$from -> $to ($atFrom:$atIdx:$atTo) - $target")
+      logDebug(s"$from -> $to ($atFrom:$atIdx:$atTo) - $target")
       if (atIdx > target) {
         assert(idx != to)
         to = idx
@@ -24,7 +24,7 @@ class CostCurve(data: Seq[(Long, Double)]) extends Logging {
         from = idx + 1
       }
     }
-    logInfo(s"$portion at $from")
+    logDebug(s"$portion at $from")
     return from
   }
 

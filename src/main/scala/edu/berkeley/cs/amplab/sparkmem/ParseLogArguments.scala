@@ -9,6 +9,8 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
   var rddTrace: String = null
   var machineReadable: Boolean = false
   var skipStacks: Boolean = false
+  var skipStacksExceptRDD: Boolean = false
+  var debug: Boolean = false
   private var propertiesFile: String =  null
 
   parse(args.toList)
@@ -32,6 +34,14 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
         skipStacks = true
         parse(tail)
 
+      case "--skipStacksExceptRDD" :: tail =>
+        skipStacksExceptRDD = true
+        parse(tail)
+
+      case "--debug" :: tail =>
+        debug = true
+        parse(tail)
+
       case Nil =>
 
       case _ =>
@@ -53,6 +63,8 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
       |    Write in machine readable format (CSV)
       |  --skipStacks
       |    Skip stack analyses.
+      |  --debug
+      |    Enable debug logging.
       """.stripMargin)
     System.exit(exitCode)
   }

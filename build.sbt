@@ -24,6 +24,8 @@ fork in run := true
 
 javaOptions in run += "-Xmx8g"
 
+scalacOptions ++= Seq("-optimize")
+
 assemblyMergeStrategy in assembly := {
   case x @ PathList("META-INF", _*) => {
     val oldStrategy = (assemblyMergeStrategy in assembly).value

@@ -8,7 +8,7 @@ import org.apache.spark.scheduler.{SparkListenerApplicationStart,
                                    SparkListenerTaskEnd,
                                    SparkListenerBroadcastCreated}
 import org.apache.spark.storage.{BlockId, BlockStatus, RDDBlockId, ShuffleBlockId, BroadcastBlockId}
-
+ 
 import java.io.PrintWriter
 
 import scala.collection.mutable
@@ -23,15 +23,24 @@ class BlockAccessListener extends SparkListener with Logging {
   var recordLogFile: PrintWriter = null
   var skipExtraStacks = false
   var skipRDDStack = false
+  var startTime = 0L
+  var endReadTime = 0L
+  var endTime = 0L
   private val pendingTasks = mutable.Buffer.empty[SparkListenerTaskEnd]
   private var didStart = false
   private val rddStack = new PriorityStack
   private val broadcastStack = new PriorityStack
   private val shuffleStack = new PriorityStack
 
+  // TODO: Seperate in v. out memory sizes?
+  // TODO: Make sure (Spark-side) that we don't double-count in Aggregator?
   private val topRddBlockSizes = new TopK
   private val topShuffleMemorySizes = new TopK
+  private val topShuffleMemorySizesPairAdjust = new TopK
   private val topShuffleDiskBlockSizes = new TopK
+
+  // 8 byte header + two 4-byte pointers
+  private val PAIR_SIZE_ADJUSTMENT = { 8 + 4 + 4 }
 
   private var totalSpilledMemory = 0L
   private var totalSpilledDisk = 0L
@@ -75,12 +84,15 @@ class BlockAccessListener extends SparkListener with Logging {
     val writeSize = metrics.shuffleWriteMetrics.map(_.shuffleBytesWritten).getOrElse(0L)
     // FIXME: This includes BOTH ends of the shuffle
     val memorySize = metrics.shuffleMemoryMetrics.map(_.shuffleOutputBytes).getOrElse(0L)
+    val memoryGroups = metrics.shuffleMemoryMetrics.map(_.shuffleOutputGroups).getOrElse(0L)
+    // TODO: When this isn't derived from hashtable size (shuffle.spill) we need to adjust it
+    //       for hashtable overhead, too
+    val memorySizeAdjusted = memorySize - memoryGroups * PAIR_SIZE_ADJUSTMENT
     var hadRead = false
     logDebug(s"Shuffle for TID $taskId: wrote $writeSize; produced $memorySize in memory")
     totalSpilledMemory += metrics.memoryBytesSpilled
     totalSpilledDisk += metrics.diskBytesSpilled
     shuffleReadIds(metrics.accessedBlocks).foreach { blockId =>
-      assert(metrics.shuffleMemoryMetrics.isDefined)
       if (!skipExtraStacks) {
         shuffleStack.read(nameShuffle(blockId.shuffleId), Some(shuffleWriteSize.getOrElse(blockId.shuffleId, 0L)),
                           shuffleWriteSize.getOrElse(blockId.shuffleId, 0L).toDouble)
@@ -89,6 +101,7 @@ class BlockAccessListener extends SparkListener with Logging {
         seenShuffleReadPieces += blockId
       }
       topShuffleMemorySizes.insert(memorySize)
+      topShuffleMemorySizesPairAdjust.insert(memorySizeAdjusted)
       hadRead = true
     }
     shuffleWriteIds(metrics.accessedBlocks).foreach { blockId => 
@@ -99,6 +112,7 @@ class BlockAccessListener extends SparkListener with Logging {
         topShuffleDiskBlockSizes.insert(writeSize)
         if (!hadRead) {
           topShuffleMemorySizes.insert(memorySize)
+          topShuffleMemorySizesPairAdjust.insert(memorySizeAdjusted)
         }
       }
       if (!skipExtraStacks) {
@@ -114,6 +128,7 @@ class BlockAccessListener extends SparkListener with Logging {
     shuffleStack.getCostCurve,
     topRddBlockSizes.get,
     topShuffleMemorySizes.get,
+    topShuffleMemorySizesPairAdjust.get,
     topShuffleDiskBlockSizes.get,
     totalSpilledMemory,
     totalSpilledDisk,
@@ -122,7 +137,9 @@ class BlockAccessListener extends SparkListener with Logging {
     totalRecomputed,
     totalRecomputedUnknown,
     totalRecomputedZero,
-    totalComputedDropped
+    totalComputedDropped,
+    endReadTime - startTime,
+    endTime - endReadTime
   )
 
   private def recordTopSizes() {
@@ -166,7 +183,7 @@ class BlockAccessListener extends SparkListener with Logging {
     if (blockStatus.storageLevel.useMemory) {
       recordSize(blockId, blockStatus.memSize)
     } else if (blockStatus.storageLevel.useOffHeap) {
-      recordSize(blockId, blockStatus.tachyonSize)
+      recordSize(blockId, blockStatus.externalBlockStoreSize)
     } else if (blockStatus.storageLevel.useDisk) {
       recordSize(blockId, blockStatus.diskSize)
     } else if (blockStatus.memSize > 0) {
@@ -296,6 +313,7 @@ class BlockAccessListener extends SparkListener with Logging {
               if (theSize == 0) {
                 totalRecomputedZero += 1
               }
+              logDebug(s"Found recomputed size of $theSize for $blockId")
               totalRecomputed += theSize
             } else {
               totalRecomputedUnknown += 1
@@ -322,15 +340,18 @@ class BlockAccessListener extends SparkListener with Logging {
 
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd) {
     if (sortTasks) {
+      endReadTime = System.nanoTime()
       pendingTasks.sortBy(taskEnd => taskEnd.taskInfo.taskId).foreach(processTask)
     }
     recordTopSizes()
+    endTime = System.nanoTime()
     didStart = false
   }
 
   override def onApplicationStart(applicationStart: SparkListenerApplicationStart) {
     assert(!didStart) /* Don't support multiple applications yet. */
     didStart = true
+    startTime = System.nanoTime()
   }
 
   override def onBroadcastCreated(broadcastCreated: SparkListenerBroadcastCreated) {

@@ -6,6 +6,7 @@ case class UsageInfo(
   val shuffleCostCurve: CostCurve,
   val topRddSizes: Seq[Long],
   val topAggregatorMemorySizes: Seq[Long],
+  val topAggregatorMemorySizesPairAdjust: Seq[Long],
   val topAggregatorDiskSizes: Seq[Long],
 
   val totalSpilledMemory: Long,
@@ -15,7 +16,10 @@ case class UsageInfo(
   val totalRecomputed: Long,
   val totalRecomputedUnknown: Long,
   val totalRecomputedZero: Long,
-  val totalComputedDropped: Long
+  val totalComputedDropped: Long,
+
+  val readLogTime: Long,
+  val processLogTime: Long
 ) {
   def rddAllSize: Long = rddCostCurve.canonicalSize
   def broadcastAllSize: Long = broadcastCostCurve.canonicalSize
@@ -23,6 +27,8 @@ case class UsageInfo(
 
   def rddActiveSize(cores: Int): Long = topRddSizes.take(cores).sum
   def shuffleActiveSize(cores: Int): Long = topAggregatorMemorySizes.take(cores).sum
+  def shuffleActiveSizeWithAdjust(cores: Int): Long = topAggregatorMemorySizesPairAdjust.take(cores).sum
+  def shuffleActiveFromDiskSize(cores: Int): Long = topAggregatorDiskSizes.take(cores).sum
 
   import Util.bytesToString
   def summary(cores: Int): String =
@@ -33,11 +39,17 @@ case class UsageInfo(
     s"spilled mem ${bytesToString(totalSpilledMemory)} disk ${bytesToString(totalSpilledDisk)}"
 
   def csvHeader: String =
-    s"cores,rdd,broadcast,shuffleStorage,rddActive,shuffleActive,spilledMem,spilledDisk,blockCount,sizeIncrements," +
-    s"totalRecomputed,totalRecomputedUnknown,totalRecomputedZero,totalComputedDropped"
+    s"cores,rdd,broadcast,shuffleStorage,rddActive,shuffleActive," +
+    s"shuffleActiveAdjust,shuffleActiveDisk,spilledMem," +
+    s"spilledDisk,blockCount,sizeIncrements," +
+    s"totalRecomputed,totalRecomputedUnknown,totalRecomputedZero,totalComputedDropped," +
+    s"readLogTime,processLogTime"
+
   def csvLine(cores: Int): String =
     s"$cores,$rddAllSize,$broadcastAllSize,$shuffleAllSize,${rddActiveSize(cores)},${shuffleActiveSize(cores)}," +
-    s"$totalSpilledMemory,$totalSpilledDisk,$rddBlockCount,$rddSizeIncrements,$totalRecomputed," +
-    s"$totalRecomputedUnknown,$totalRecomputedZero,$totalComputedDropped"
+    s"${shuffleActiveSizeWithAdjust(cores)},${shuffleActiveFromDiskSize(cores)},$totalSpilledMemory," +
+    s"$totalSpilledDisk,$rddBlockCount,$rddSizeIncrements," +
+    s"$totalRecomputed,$totalRecomputedUnknown,$totalRecomputedZero,$totalComputedDropped," +
+    s"$readLogTime,$processLogTime"
 }
 

@@ -1,22 +1,26 @@
 package edu.berkeley.cs.amplab.sparkmem
 
 import org.apache.spark.SparkConf
-import org.apache.spark.util.Utils
 
 private[sparkmem]
 class ParseLogArguments(conf: SparkConf, args: Array[String]) {
+  import Util.stringToBytes
+
   var logDir: String = null
   var rddTrace: String = null
   var machineReadable: Boolean = false
   var skipStacks: Boolean = false
   var skipStacksExceptRDD: Boolean = false
   var debug: Boolean = false
-  private var propertiesFile: String =  null
+  var makeConfig: Boolean = false
+  var targetWorkers: Int = 0
+  var targetCoresPerWorker: Int = 0
+  var targetMemoryPerWorker: Long = 0
 
   parse(args.toList)
 
   private def parse(args: List[String]): Unit = {
-    System.err.println(s"args = $args")
+    // System.err.println(s"args = $args")
     args match {
       case ("--logDir" | "-l") :: value :: tail =>
         logDir = value
@@ -28,6 +32,22 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
 
       case "--machineReadable" :: tail =>
         machineReadable = true
+        parse(tail)
+
+      case "--makeConfig" :: tail =>
+        makeConfig = true
+        parse(tail)
+
+      case "--targetWorkers" :: value :: tail =>
+        targetWorkers = value.toInt
+        parse(tail)
+
+      case "--targetCoresPerWorker" :: value :: tail =>
+        targetCoresPerWorker = value.toInt
+        parse(tail)
+
+      case "--targetMemoryPerWorker" :: value :: tail =>
+        targetMemoryPerWorker = stringToBytes(value)
         parse(tail)
 
       case "--skipStacks" :: tail =>
@@ -49,7 +69,7 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
     }
   }
 
-  private def printUsageAndExit(exitCode: Int) {
+  def printUsageAndExit(exitCode: Int) {
     System.err.println(
       """
       |Usage: ParseLogs [options]
@@ -59,8 +79,22 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
       |    Location of the application in question's output.
       |  --rddTrace OUTPUT-FILE
       |    Location to write raw RDD access trace (for debugging)
+      |  --makeConfig
+      |    Output a (partial) spark configuration properties file.
+      |  --targetMemoryPerWorker MEMORY
+      |    Amount of memory to assume per node for generating Spark config file.
+      |    Either this or targetWorkers must be specified. Output file will
+      |    indicate suggested number of workers in a comment.
+      |
+      |    MEMORY should be a string like 1.24g or 1234m
+      |  --targetWorkers NODES
+      |    Number of workers to assume for generating Spark config file.
+      |    Either this or targetMemoryPerWorker must be specified. Output file
+      |    will indicate memory requirement in a comment.
+      |  --targetCoresPerWorker CORES
+      |    Number of cores to assume for generating Spark config file
       |  --machineReadable
-      |    Write in machine readable format (CSV)
+      |    Write raw data in a machine readable format (for graphs)
       |  --skipStacks
       |    Skip stack analyses.
       |  --debug

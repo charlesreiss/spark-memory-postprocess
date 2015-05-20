@@ -5,7 +5,7 @@ import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
 
 object PriorityStack {
-  final class Item(
+  final case class Item(
     val key: String,
     var size: Long,
     var priority: Long,
@@ -44,11 +44,13 @@ final class PriorityStack extends Logging {
 
   private def maybeCacheForLookup(theNode: PriorityStack.Item, theCost: Long): Unit = {
     logDebug(s"caching ${theNode.key} at ${theCost}")
-    maybeLastLookup = Some(theNode)
-    lastCost = theCost
+    if (!maybeLastLookup.isDefined || theCost < lastCost) {
+      maybeLastLookup = Some(theNode)
+      lastCost = theCost
+    }
   }
 
-  @inline def findNodeCached(key: String, cacheFind: Boolean = false):
+  @inline private def findNodeCached(key: String, cacheFind: Boolean = false):
         (Option[PriorityStack.Item], Long, Option[PriorityStack.Item]) = {
     contained.get(key) match {
     case Some(resultItem) => 
@@ -58,18 +60,20 @@ final class PriorityStack extends Logging {
                         map { last => (lastCost, last) }.
                         getOrElse((0L -> head))
       logDebug(s"Using ($startSize @ ${startPoint.key})")
+      var depth = 0
       if (head != resultItem) {
         size += startSize
         var current = startPoint
         var previous = current 
-        while (current.next != resultItem) {
+        while (current.next ne resultItem) {
           logDebug(s"Continue past ${current.key} adding ${current.size}")
           size += current.size
           previous = current
           current = current.next
           assert(previous.priority > current.priority)
+          depth += 1
         }
-        if (current != previous && cacheFind) {
+        if (current != previous && cacheFind && depth > 20) {
           maybeCacheForLookup(current, size)
         }
         size += current.size

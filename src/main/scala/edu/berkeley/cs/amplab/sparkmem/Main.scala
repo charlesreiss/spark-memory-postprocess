@@ -14,19 +14,8 @@ import org.apache.log4j.BasicConfigurator
 import org.apache.log4j.{Logger => L4JLogger, Level => L4JLevel}
 
 object Main {
-  private def usageInfoFromEventLog(conf: SparkConf, args: Arguments): UsageInfo = {
+  private def playLogOnce(conf: SparkConf, args: Arguments, listener: BlockAccessListener) {
     val fs = FileSystem.get(new Path(args.logDir).toUri, SparkHadoopUtil.get.newConfiguration(conf))
-    val blockAccessListener = new BlockAccessListener
-    blockAccessListener.skipExtraStacks = args.skipStacks || args.skipStacksExceptRDD
-    blockAccessListener.skipRDDStack = args.skipStacks && !args.skipStacksExceptRDD
-    Option(args.rddTrace).foreach { rddTracePath => 
-      blockAccessListener.recordLogFile = new PrintWriter(new File(rddTracePath))
-    }
-    /* 1.3.0-memanalysis hack:
-      val replayBus = ReplayListenerBus.fromLogDirectory(new Path(args.logDir), fs)
-      replayBus.addListener(blockAccessListener)
-      replayBus.replay()
-    */
     val replayBus = new ReplayListenerBus
     val logInput = EventLoggingListener.openEventLog(new Path(args.logDir), fs)
     try {
@@ -34,6 +23,24 @@ object Main {
     } finally {
       logInput.close()
     }
+  }
+
+  private def usageInfoFromEventLog(conf: SparkConf, args: Arguments): UsageInfo = {
+    val blockAccessListener = new BlockAccessListener
+    blockAccessListener.skipExtraStacks = args.skipStacks || args.skipStacksExceptRDD
+    blockAccessListener.skipRDDStack = args.skipStacks && !args.skipStacksExceptRDD
+    blockAccessListener.consolidateRDDs = args.consolidateRDDs
+    blockAccessListener.sortTasks = args.tasksInOrder
+    Option(args.rddTrace).foreach { rddTracePath => 
+      blockAccessListener.recordLogFile = new PrintWriter(new File(rddTracePath))
+    }
+
+    // preprocesing step to get all block sizes
+    blockAccessListener.skipProcessTasks = true
+    playLogOnce(conf, args, blockAccessListener)
+    // second step to use block sizes
+    blockAccessListener.skipProcessTasks = false
+    playLogOnce(conf, args, blockAccessListener)
 
     Option(blockAccessListener.recordLogFile).foreach(_.close)
 

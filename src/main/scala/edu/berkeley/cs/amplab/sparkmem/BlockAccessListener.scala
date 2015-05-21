@@ -19,10 +19,13 @@ object BlockAccessListener {
 }
 
 class BlockAccessListener extends SparkListener with Logging {
-  val sortTasks = true
+  var skipProcessTasks = false
+  var sortTasks = true
   var recordLogFile: PrintWriter = null
   var skipExtraStacks = false
   var skipRDDStack = false
+  var consolidateRDDs = false
+
   var startTime = 0L
   var endReadTime = 0L
   var endTime = 0L
@@ -169,13 +172,31 @@ class BlockAccessListener extends SparkListener with Logging {
   private def sizeForBlock(blockId: BlockId): Long = {
     val size = blockSizes.getOrElse(blockId, -1L)
     if (size < 0L) {
-      logError("sizeForBlock unavailable for " + blockId)
+      if (consolidateRDDs && blockId.isRDD) {
+        val blockIdRdd = blockId.asInstanceOf[RDDBlockId]
+        assert(blockIdRdd.splitIndex == -1)
+        var index = 0
+        var newSize = 0L
+        while (blockSizes.contains(RDDBlockId(blockIdRdd.rddId, index))) {
+          newSize += blockSizes(RDDBlockId(blockIdRdd.rddId, index))
+          index += 1
+        }
+        blockSizes(blockId) = newSize
+        return newSize
+      } else {
+        logError("sizeForBlock unavailable for " + blockId)
+      }
     }
     size
   }
 
   private def recordedBlockIdForBlock(blockId: BlockId): BlockId = blockId match {
     case ShuffleBlockId(shuffleId, _, _) => ShuffleBlockId(shuffleId, 0, 0)
+    case RDDBlockId(rddId, splitIndex) =>
+      if (consolidateRDDs)
+        RDDBlockId(rddId, -1)
+      else
+        blockId
     case _ => blockId
   }
 
@@ -251,18 +272,43 @@ class BlockAccessListener extends SparkListener with Logging {
   }
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd) {
-    if (sortTasks) {
-      pendingTasks += taskEnd
+    if (skipProcessTasks) {
+      recordSizes(taskEnd)
     } else {
-      processTask(taskEnd)
+      if (sortTasks) {
+        pendingTasks += taskEnd
+      } else {
+        processTask(taskEnd)
+      }
+    }
+  }
+
+  private def recordSizes(taskEnd: SparkListenerTaskEnd) {
+    val metrics = taskEnd.taskMetrics
+
+    /* Infer block sizes from updated blocks. */
+    for ((blockId, blockStatus) <- metrics.updatedBlocks.getOrElse(Nil)) {
+      recordStatusSize(blockId, blockStatus)
+    }
+
+    /* Infer block sizes from read blocks. */
+    for ((blockId, blockAccess) <- metrics.accessedBlocks.getOrElse(Nil)) {
+      recordAccessSize(blockId, blockAccess)
     }
   }
 
   private def processTask(taskEnd: SparkListenerTaskEnd) {
     assert(didStart)
+    recordSizes(taskEnd)
     if (taskEnd.reason == TaskEndSuccess) {
       val metrics = taskEnd.taskMetrics
-      // TODO: Process shuffle{Read,Write,Memory}Metrics.
+
+
+      if (metrics.updatedBlocks.getOrElse(Nil).size > 0) {
+        if (metrics.accessedBlocks.getOrElse(Nil).size == 0) {
+          logError("updated blocks " + metrics.updatedBlocks + " but accessed " + metrics.accessedBlocks)
+        }
+      }
 
       accumulateShuffle(taskEnd.taskInfo.taskId, metrics)
 
@@ -339,7 +385,7 @@ class BlockAccessListener extends SparkListener with Logging {
   }
 
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd) {
-    if (sortTasks) {
+    if (sortTasks && !skipProcessTasks) {
       endReadTime = System.nanoTime()
       pendingTasks.sortBy(taskEnd => taskEnd.taskInfo.taskId).foreach(processTask)
     }

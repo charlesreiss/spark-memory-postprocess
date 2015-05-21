@@ -18,6 +18,9 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   var targetCoresPerWorker: Int = 0
   var targetMemoryPerWorker: Long = 0
 
+  var tasksInOrder = false
+  var consolidateRDDs = false
+
   parse(args.toList)
 
   private def parse(args: List[String]): Unit = {
@@ -37,6 +40,14 @@ class Arguments(conf: SparkConf, args: Array[String]) {
 
       case "--machineReadable" :: tail =>
         machineReadable = true
+        parse(tail)
+
+      case "--tasksInOrder" :: tail =>
+        tasksInOrder = true
+        parse(tail)
+
+      case "--consolidateRDDs" :: tail =>
+        consolidateRDDs = true
         parse(tail)
 
       case "--makeConfig" :: tail =>
@@ -80,18 +91,29 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       |Usage: ParseLogs [options]
       |
       |Options:
+      |  --jsonFile FILE
+      |    FILE to use to store analysis results. If --logDir is specified, output will go here;
+      |    otherwise input will be read from here.
+      |
+      | Analyzing event logs:
       |  --logDir LOG-DIRECTORY
       |    Location of the application in question's output.
       |  --rddTrace OUTPUT-FILE
       |    Location to write raw RDD access trace (for debugging)
+      |  --consolidateRDDs
+      |    Treat all partitions of an RDD as a unit for the purpose of cache analyses.
+      |  --tasksInOrder
+      |    Analyze as if tasks are exectued serially in task ID order. (Default: as if tasks are
+      |    executed serially in task completion order.)
+      |
+      | Creating potential config files:
       |  --makeConfig
       |    Output a (partial) spark configuration properties file.
       |  --targetMemoryPerWorker MEMORY
       |    Amount of memory to assume per node for generating Spark config file.
       |    Either this or targetWorkers must be specified. Output file will
       |    indicate suggested number of workers in a comment.
-      |
-      |    MEMORY should be a string like 1.24g or 1234m
+      |    MEMORY should be a string like 1.24g or 1234m.
       |  --targetWorkers NODES
       |    Number of workers to assume for generating Spark config file.
       |    Either this or targetMemoryPerWorker must be specified. Output file

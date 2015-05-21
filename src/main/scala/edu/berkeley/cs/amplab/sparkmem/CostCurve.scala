@@ -5,6 +5,8 @@ import scala.math.Ordering
 class CostCurve(data: Seq[(Long, Double)]) extends Logging {
   private val rawCurve: Array[(Long, Double)] = data.sorted.toArray
 
+  def curvePoints: Seq[(Long, Double)] = rawCurve
+
   private val maxCost = rawCurve.head._2
 
   private def indexAtPortion(portion: Double): Int = {

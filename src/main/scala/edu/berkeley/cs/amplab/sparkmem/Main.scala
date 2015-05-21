@@ -13,10 +13,10 @@ import org.apache.log4j.BasicConfigurator
 
 import org.apache.log4j.{Logger => L4JLogger, Level => L4JLevel}
 
-object ParseLogs {
+object Main {
   def main(rawArgs: Array[String]) {
     val conf = new SparkConf
-    val args = new ParseLogArguments(conf, rawArgs)
+    val args = new Arguments(conf, rawArgs)
     BasicConfigurator.configure()
     if (args.debug) {
       L4JLogger.getRootLogger.setLevel(L4JLevel.DEBUG)

@@ -3,10 +3,11 @@ package edu.berkeley.cs.amplab.sparkmem
 import org.apache.spark.SparkConf
 
 private[sparkmem]
-class ParseLogArguments(conf: SparkConf, args: Array[String]) {
+class Arguments(conf: SparkConf, args: Array[String]) {
   import Util.stringToBytes
 
   var logDir: String = null
+  var jsonFile: String = null
   var rddTrace: String = null
   var machineReadable: Boolean = false
   var skipStacks: Boolean = false
@@ -24,6 +25,10 @@ class ParseLogArguments(conf: SparkConf, args: Array[String]) {
     args match {
       case ("--logDir" | "-l") :: value :: tail =>
         logDir = value
+        parse(tail)
+
+      case ("--jsonFile" | "-f") :: value :: tail =>
+        jsonFile = value
         parse(tail)
 
       case "--rddTrace" :: value :: tail =>

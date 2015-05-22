@@ -14,7 +14,7 @@ import org.apache.log4j.BasicConfigurator
 
 import org.apache.log4j.{Logger => L4JLogger, Level => L4JLevel}
 
-object Main {
+object Main extends Logging {
   private def playLogOnce(conf: SparkConf, args: Arguments, listener: BlockAccessListener) {
     (args.logFile, args.logDir) match {
       case (Some(logFile), None) => {
@@ -62,6 +62,16 @@ object Main {
     }
   }
 
+  private def nanosecondsToStr(nanos: Long): String = {
+    val MILLISECOND = 1000L * 1000L
+    val SECOND = 1000L * 1000L * 1000L
+    if (nanos > 10L * SECOND) {
+      return f"${nanos.toDouble / SECOND}%.2f s"
+    } else {
+      return f"${nanos.toDouble / MILLISECOND}%.2f ms"
+    }
+  }
+
   private def usageInfoFromEventLog(conf: SparkConf, args: Arguments): UsageInfo = {
     val blockAccessListener = new BlockAccessListener
     blockAccessListener.skipExtraStacks = args.skipStacks || args.skipStacksExceptRDD
@@ -72,14 +82,20 @@ object Main {
       blockAccessListener.recordLogFile = new PrintWriter(new File(rddTracePath))
     }
 
+    val startTime = System.nanoTime()
     // preprocesing step to get all block sizes
     blockAccessListener.skipProcessTasks = true
     playLogOnce(conf, args, blockAccessListener)
+    val endFirstPassTime = System.nanoTime()
     // second step to use block sizes
     blockAccessListener.skipProcessTasks = false
     playLogOnce(conf, args, blockAccessListener)
+    val endTime = System.nanoTime()
 
     Option(blockAccessListener.recordLogFile).foreach(_.close)
+
+    logInfo(s"Processed log in ${nanosecondsToStr(endTime - startTime)} " +
+            s"(first pass ${nanosecondsToStr(endFirstPassTime - startTime)})")
 
     blockAccessListener.usageInfo
   }

@@ -3,6 +3,7 @@ package edu.berkeley.cs.amplab.sparkmem
 import org.slf4j.{Logger, LoggerFactory}
 import org.slf4j.impl.StaticLoggerBinder
 
+/** Derived from Apache Spark's Logging trait; cut down. */
 trait Logging {
   // Make the log field transient so that objects with Logging can
   // be serialized and used on another machine

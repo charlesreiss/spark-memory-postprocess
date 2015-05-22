@@ -6,9 +6,11 @@ private[sparkmem]
 class Arguments(conf: SparkConf, args: Array[String]) {
   import Util.stringToBytes
 
-  var logDir: String = null
-  var jsonFile: String = null
-  var rddTrace: String = null
+  var logDir: Option[String] = None
+  var logFile: Option[String] = None
+  def haveLog: Boolean = logDir.isDefined || logFile.isDefined
+  var jsonFile: Option[String] = None
+  var rddTrace: Option[String] = None
   var machineReadable: Boolean = false
   var skipStacks: Boolean = false
   var skipStacksExceptRDD: Boolean = false
@@ -21,21 +23,35 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   var tasksInOrder = false
   var consolidateRDDs = false
 
+  def sanityCheck() {
+    if (logDir.isDefined && logFile.isDefined) {
+      System.err.println("Specify exactly one of --logDir and --logFile.")
+      printUsageAndExit(1)
+    } else if (!haveLog && !jsonFile.isDefined) {
+      System.err.println("Either specify a log or a the json file resulting from a log.")
+      printUsageAndExit(1)
+    }
+  }
+
   parse(args.toList)
 
   private def parse(args: List[String]): Unit = {
     // System.err.println(s"args = $args")
     args match {
-      case ("--logDir" | "-l") :: value :: tail =>
-        logDir = value
+      case ("--logFile" | "-l") :: value :: tail =>
+        logFile = Some(value)
+        parse(tail)
+
+      case ("--logDir") :: value :: tail =>
+        logDir = Some(value)
         parse(tail)
 
       case ("--jsonFile" | "-f") :: value :: tail =>
-        jsonFile = value
+        jsonFile = Some(value)
         parse(tail)
 
       case "--rddTrace" :: value :: tail =>
-        rddTrace = value
+        rddTrace = Some(value)
         parse(tail)
 
       case "--machineReadable" :: tail =>
@@ -81,6 +97,7 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       case Nil =>
 
       case _ =>
+        System.err.println(s"Unrecognized argument ${args.head}")
         printUsageAndExit(1)
     }
   }
@@ -88,16 +105,18 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   def printUsageAndExit(exitCode: Int) {
     System.err.println(
       """
-      |Usage: ParseLogs [options]
+      |Usage: ./run [options]
       |
       |Options:
       |  --jsonFile FILE
-      |    FILE to use to store analysis results. If --logDir is specified, output will go here;
-      |    otherwise input will be read from here.
+      |    FILE storing log analysis summary. If --logFile or --logFile is specified, output will
+      |    go here; otherwise input will be read from here.
       |
       | Analyzing event logs:
+      |  --logFile LOG-FILE
+      |    Single event log file with embedded metadata and extension indicating compression (Spark >= 1.4)
       |  --logDir LOG-DIRECTORY
-      |    Location of the application in question's output.
+      |    Event log directory with metadata files (Spark <= 1.3)
       |  --rddTrace OUTPUT-FILE
       |    Location to write raw RDD access trace (for debugging)
       |  --consolidateRDDs

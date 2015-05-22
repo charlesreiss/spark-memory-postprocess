@@ -4,10 +4,11 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.SparkHadoopUtil
+import org.apache.spark.io.CompressionCodec
 import org.apache.spark.scheduler.ReplayListenerBus
 import org.apache.spark.scheduler.EventLoggingListener
 
-import java.io.{File, PrintWriter}
+import java.io.{BufferedInputStream, File, PrintWriter}
 
 import org.apache.log4j.BasicConfigurator
 
@@ -15,13 +16,48 @@ import org.apache.log4j.{Logger => L4JLogger, Level => L4JLevel}
 
 object Main {
   private def playLogOnce(conf: SparkConf, args: Arguments, listener: BlockAccessListener) {
-    val fs = FileSystem.get(new Path(args.logDir).toUri, SparkHadoopUtil.get.newConfiguration(conf))
-    val replayBus = new ReplayListenerBus
-    val logInput = EventLoggingListener.openEventLog(new Path(args.logDir), fs)
-    try {
-      replayBus.replay(logInput, args.logDir)
-    } finally {
-      logInput.close()
+    (args.logFile, args.logDir) match {
+      case (Some(logFile), None) => {
+        val fs = FileSystem.get(new Path(logFile).toUri, SparkHadoopUtil.get.newConfiguration(conf))
+        val logInput = EventLoggingListener.openEventLog(new Path(logFile), fs)
+        val replayBus = new ReplayListenerBus
+        replayBus.addListener(listener)
+        try {
+          replayBus.replay(logInput, logFile)
+        } finally {
+          logInput.close()
+        }
+      }
+      case (None, Some(logDir)) => {
+        val fs = FileSystem.get(new Path(logDir).toUri, SparkHadoopUtil.get.newConfiguration(conf))
+        var logFile: Path = null
+        var logCodecName: Option[String] = None
+        // From FsHistoryProvider.openLegacyLog
+        val CODEC_PREFIX = "COMPRESSION_CODEC_"
+        fs.listStatus(new Path(logDir)).foreach { child =>
+          child.getPath().getName() match {
+            case name if name.startsWith("EVENT_LOG_") =>
+              logFile = child.getPath()
+            case codec if codec.startsWith(CODEC_PREFIX) =>
+              logCodecName = Some(codec.substring(CODEC_PREFIX.length()))
+          }
+        }
+        val codec = logCodecName match {
+          case None => None
+          case Some("snappy") => Some(new org.apache.spark.io.SnappyCompressionCodec(conf))
+          case _ => throw new IllegalArgumentException("Unrecognized codec" + logCodecName)
+        }
+        val logInputRaw = new BufferedInputStream(fs.open(logFile))
+        val logInput = codec.map(c => c.compressedInputStream(logInputRaw)).getOrElse(logInputRaw)
+        val replayBus = new ReplayListenerBus
+        replayBus.addListener(listener)
+        try {
+          replayBus.replay(logInput, logDir)
+        } finally {
+          logInput.close()
+        }
+      }
+      case (_, _) => throw new IllegalArgumentException
     }
   }
 
@@ -31,7 +67,7 @@ object Main {
     blockAccessListener.skipRDDStack = args.skipStacks && !args.skipStacksExceptRDD
     blockAccessListener.consolidateRDDs = args.consolidateRDDs
     blockAccessListener.sortTasks = args.tasksInOrder
-    Option(args.rddTrace).foreach { rddTracePath => 
+    args.rddTrace.foreach { rddTracePath => 
       blockAccessListener.recordLogFile = new PrintWriter(new File(rddTracePath))
     }
 
@@ -53,26 +89,32 @@ object Main {
     import org.json4s.jackson.JsonMethods._
     import scala.io.Source
    
-    UsageInfo.fromJson(parse(Source.fromFile(args.jsonFile).toString))
+    UsageInfo.fromJson(parse(Source.fromFile(args.jsonFile.get).toString))
   }
 
   def main(rawArgs: Array[String]) {
     val conf = new SparkConf
     val args = new Arguments(conf, rawArgs)
+    args.sanityCheck()
     BasicConfigurator.configure()
     if (args.debug) {
       L4JLogger.getRootLogger.setLevel(L4JLevel.DEBUG)
     }
+
     val usageInfo =
-      if (args.logDir != null)
+      if (args.haveLog)
         usageInfoFromEventLog(conf, args)
       else
         usageInfoFromJson(args)
 
-    if (args.jsonFile != null && args.logDir != null) {
-      val writer = new PrintWriter(new File(args.jsonFile))
-      writer.write(usageInfo.toJsonString)
-      writer.close()
+    if (args.haveLog) {
+      args.jsonFile match {
+        case Some(jsonFile) => {
+          val writer = new PrintWriter(new File(jsonFile))
+          writer.write(usageInfo.toJsonString)
+          writer.close()
+        }
+      }
     }
 
     if (args.makeConfig) {
@@ -90,8 +132,6 @@ object Main {
       for (i <- 1 to 16) {
         println(usageInfo.csvLine(i))
       }
-    } else {
-      args.printUsageAndExit(1)
     }
   }
 }

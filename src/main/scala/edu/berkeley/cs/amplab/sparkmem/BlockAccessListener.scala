@@ -26,9 +26,6 @@ class BlockAccessListener extends SparkListener with Logging {
   var skipRDDStack = false
   var consolidateRDDs = false
 
-  var startTime = 0L
-  var endReadTime = 0L
-  var endTime = 0L
   private val pendingTasks = mutable.Buffer.empty[SparkListenerTaskEnd]
   private var didStart = false
   private val rddStack = new PriorityStack
@@ -140,9 +137,7 @@ class BlockAccessListener extends SparkListener with Logging {
     totalRecomputed,
     totalRecomputedUnknown,
     totalRecomputedZero,
-    totalComputedDropped,
-    endReadTime - startTime,
-    endTime - endReadTime
+    totalComputedDropped
   )
 
   private def recordTopSizes() {
@@ -386,18 +381,15 @@ class BlockAccessListener extends SparkListener with Logging {
 
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd) {
     if (sortTasks && !skipProcessTasks) {
-      endReadTime = System.nanoTime()
       pendingTasks.sortBy(taskEnd => taskEnd.taskInfo.taskId).foreach(processTask)
     }
     recordTopSizes()
-    endTime = System.nanoTime()
     didStart = false
   }
 
   override def onApplicationStart(applicationStart: SparkListenerApplicationStart) {
     assert(!didStart) /* Don't support multiple applications yet. */
     didStart = true
-    startTime = System.nanoTime()
   }
 
   override def onBroadcastCreated(broadcastCreated: SparkListenerBroadcastCreated) {

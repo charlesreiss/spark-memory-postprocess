@@ -20,10 +20,7 @@ case class UsageInfo(
   val totalRecomputed: Long,
   val totalRecomputedUnknown: Long,
   val totalRecomputedZero: Long,
-  val totalComputedDropped: Long,
-
-  val readLogTime: Long,
-  val processLogTime: Long
+  val totalComputedDropped: Long
 ) {
   def rddAllSize: Long = rddCostCurve.canonicalSize
   def broadcastAllSize: Long = broadcastCostCurve.canonicalSize
@@ -46,15 +43,13 @@ case class UsageInfo(
     s"cores,rdd,broadcast,shuffleStorage,rddActive,shuffleActive," +
     s"shuffleActiveAdjust,shuffleActiveDisk,spilledMem," +
     s"spilledDisk,blockCount,sizeIncrements," +
-    s"totalRecomputed,totalRecomputedUnknown,totalRecomputedZero,totalComputedDropped," +
-    s"readLogTime,processLogTime"
+    s"totalRecomputed,totalRecomputedUnknown,totalRecomputedZero,totalComputedDropped"
 
   def csvLine(cores: Int): String =
     s"$cores,$rddAllSize,$broadcastAllSize,$shuffleAllSize,${rddActiveSize(cores)},${shuffleActiveSize(cores)}," +
     s"${shuffleActiveSizeWithAdjust(cores)},${shuffleActiveFromDiskSize(cores)},$totalSpilledMemory," +
     s"$totalSpilledDisk,$rddBlockCount,$rddSizeIncrements," +
-    s"$totalRecomputed,$totalRecomputedUnknown,$totalRecomputedZero,$totalComputedDropped," +
-    s"$readLogTime,$processLogTime"
+    s"$totalRecomputed,$totalRecomputedUnknown,$totalRecomputedZero,$totalComputedDropped"
 
   def toJson: JObject = {
     import UsageInfo.{costCurveToJson, topListToJson}
@@ -73,9 +68,7 @@ case class UsageInfo(
     ("totalRecomputed" -> totalRecomputed) ~
     ("totalRecomputedUnknown" -> totalRecomputedUnknown) ~
     ("totalRecomputedZero" -> totalRecomputedZero) ~
-    ("totalComputedDropped" -> totalComputedDropped) ~
-    ("readLogTime" -> readLogTime) ~
-    ("processLogTime" -> processLogTime)
+    ("totalComputedDropped" -> totalComputedDropped)
   }
 
   def toJsonString: String = {
@@ -122,10 +115,7 @@ object UsageInfo {
       totalRecomputed = (json \ "totalRecomputed").extract[Long],
       totalRecomputedUnknown = (json \ "totalRecomputedUnknown").extract[Long],
       totalRecomputedZero = (json \ "totalRecomputedZero").extract[Long],
-      totalComputedDropped = (json \ "totalComputedDropped").extract[Long],
-
-      readLogTime = (json \ "readLogTime").extract[Long],
-      processLogTime = (json \ "processLogTime").extract[Long]
+      totalComputedDropped = (json \ "totalComputedDropped").extract[Long]
     )
   }
 }

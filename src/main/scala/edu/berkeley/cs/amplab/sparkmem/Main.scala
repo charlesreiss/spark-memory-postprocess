@@ -40,6 +40,7 @@ object Main {
               logFile = child.getPath()
             case codec if codec.startsWith(CODEC_PREFIX) =>
               logCodecName = Some(codec.substring(CODEC_PREFIX.length()))
+            case _ => {}
           }
         }
         val codec = logCodecName match {

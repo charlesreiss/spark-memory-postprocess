@@ -105,8 +105,10 @@ object Main extends Logging {
     import org.json4s.JsonDSL._
     import org.json4s.jackson.JsonMethods._
     import scala.io.Source
+
+    val theJson: String = Source.fromFile(args.jsonFile.get).mkString
    
-    UsageInfo.fromJson(parse(Source.fromFile(args.jsonFile.get).toString))
+    UsageInfo.fromJson(parse(theJson))
   }
 
   def main(rawArgs: Array[String]) {

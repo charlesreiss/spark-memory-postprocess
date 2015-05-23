@@ -31,6 +31,9 @@ class Arguments(conf: SparkConf, args: Array[String]) {
     } else if (!haveLog && !jsonFile.isDefined) {
       System.err.println("Either specify a log or a the json file resulting from a log.")
       printUsageAndExit(1)
+    } else if (machineReadable && makeConfig) {
+      System.err.println("Cannot combine --machineReadable with --makeConfig")
+      printUsageAndExit(1)
     }
   }
 

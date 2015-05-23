@@ -1,2 +1,4 @@
 target
 sbt-*.jar
+.classpath
+.project

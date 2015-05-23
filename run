@@ -1,0 +1,3 @@
+JAR=`echo target/scala-2.10/*assembly*.jar`
+
+exec java -cp conf:$JAR edu.berkeley.cs.amplab.sparkmem.Main "${@}"

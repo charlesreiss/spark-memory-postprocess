@@ -72,7 +72,6 @@ case class UsageInfo(
   }
 
   def toJsonString: String = {
-    import org.json4s.jackson.JsonMethods._
     compact(render(toJson))
   }
 }

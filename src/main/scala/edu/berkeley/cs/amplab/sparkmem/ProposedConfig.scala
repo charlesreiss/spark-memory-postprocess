@@ -21,14 +21,14 @@ case class ProposedConfig(
   def shufflePortion = shuffleSize.toDouble / workerJvmSize
 
   def configFile: String = s"""
-## Configuration for $workers workers each with $coresPerWorker tasks.
+# Configuration for $workers workers each with $coresPerWorker tasks.
 ## Requires ${bytesToString(workerJvmSize)} (JVM) + ${bytesToString(shuffleStorageSize)} (page cache) per node
 St
 # ${bytesToString(storageSize)}
 spark.storage.memoryFraction $storagePortion
 
 # ${bytesToString(shuffleSize)}
-spark.storage.shuffleFraction $shufflePortion
+spark.shuffle.memoryFraction $shufflePortion
 
 # ${bytesToString(storageUnrollSize)}
 spark.storage.unrollFraction $storageUnrollPortion

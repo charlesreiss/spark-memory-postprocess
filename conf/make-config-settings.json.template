@@ -1,1 +1,1 @@
-{"gcBonus":1.2,"assumedSlack":0.9,"minShuffleSizePerCore":16777216,"minStorageSizePerCore":16777216,"minUnrollStorageSizePerCore":4194304,"portionExtraStorage":0.45,"portionExtraUnrollStorage":0.1,"portionExtraShuffle":0.25,"portionExtraUnassignedJvm":0.05}
+{"gcBonus":1.5,"assumedSlack":0.9,"minShuffleSizePerCore":16777216,"minStorageSizePerCore":16777216,"minUnrollStorageSizePerCore":4194304,"portionExtraStorage":0.45,"portionExtraUnrollStorage":0.1,"portionExtraShuffle":0.25,"portionExtraUnassignedJvm":0.05}

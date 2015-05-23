@@ -7,7 +7,7 @@ import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
 
 case class ProposedConfigSettings(
-  val gcBonus: Double = 1.2,
+  val gcBonus: Double = 3.0 / 2.0,
   val assumedSlack: Double = 0.9,
 
   val minShuffleSizePerCore: Long = 16L * 1024L * 1024L,

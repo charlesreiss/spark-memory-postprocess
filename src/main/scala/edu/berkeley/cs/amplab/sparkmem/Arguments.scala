@@ -11,7 +11,7 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   def haveLog: Boolean = logDir.isDefined || logFile.isDefined
   var jsonFile: Option[String] = None
   var rddTrace: Option[String] = None
-  var machineReadable: Boolean = false
+  var csvOutput: Boolean = false
   var skipStacks: Boolean = false
   var skipStacksExceptRDD: Boolean = false
   var debug: Boolean = false
@@ -31,8 +31,8 @@ class Arguments(conf: SparkConf, args: Array[String]) {
     } else if (!haveLog && !jsonFile.isDefined) {
       System.err.println("Either specify a log or a the json file resulting from a log.")
       printUsageAndExit(1)
-    } else if (machineReadable && makeConfig) {
-      System.err.println("Cannot combine --machineReadable with --makeConfig")
+    } else if (csvOutput && makeConfig) {
+      System.err.println("Cannot combine --csvOutput with --makeConfig")
       printUsageAndExit(1)
     }
   }
@@ -58,8 +58,8 @@ class Arguments(conf: SparkConf, args: Array[String]) {
         rddTrace = Some(value)
         parse(tail)
 
-      case "--machineReadable" :: tail =>
-        machineReadable = true
+      case "--csvOutput" :: tail =>
+        csvOutput = true
         parse(tail)
 
       case "--tasksInOrder" :: tail =>
@@ -157,7 +157,7 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       |    Number of cores to assume for generating Spark config file
       |
       | Other output mode:
-      |  --machineReadable
+      |  --csvOutput
       |    Write raw data in a machine readable format (for graphs)
       """.stripMargin)
     System.exit(exitCode)

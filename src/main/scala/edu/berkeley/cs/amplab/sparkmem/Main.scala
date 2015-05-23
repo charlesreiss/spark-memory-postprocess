@@ -149,7 +149,7 @@ object Main extends Logging {
                                        settings)
         }
       println(config.configFile)
-    } else if (args.machineReadable) {
+    } else if (args.csvOutput) {
       println(usageInfo.csvHeader)
       for (i <- 1 to 16) {
         println(usageInfo.csvLine(i))

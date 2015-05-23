@@ -9,7 +9,7 @@ object Util {
   )
   def bytesToString(bytes: Double): String = {
     val unit = UNITS.dropWhile(_._2 > 4. * bytes).headOption.getOrElse("" -> 1.)
-    return s"${bytes / unit._2} ${unit._1}"
+    return f"${bytes / unit._2}%.2f ${unit._1}%s"
   }
 
   def bytesToString(bytes: Long): String = bytesToString(bytes.toDouble)

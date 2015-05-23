@@ -15,9 +15,13 @@ case class ProposedConfig(
   private val workerJvmSizeStr = "%.0fm".format(workerJvmSize / 1024. / 1024.)
 
   val extraJvmSpace = workerJvmSize - storageSize - shuffleSize
+  
+  def storagePortion = storageSize.toDouble / workerJvmSize
+  def storageUnrollPortion = storageUnrollSize.toDouble / storageSize
+  def shufflePortion = shuffleSize.toDouble / workerJvmSize
 
-  def configFile: String = """
-## Configuration for $workers workers each with $cores tasks.
+  def configFile: String = s"""
+## Configuration for $workers workers each with $coresPerWorker tasks.
 ## Requires ${bytesToString(workerJvmSize)} (JVM) + ${bytesToString(shuffleStorageSize)} (page cache) per node
 St
 # ${bytesToString(storageSize)}

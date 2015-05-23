@@ -14,6 +14,11 @@ import org.apache.log4j.BasicConfigurator
 
 import org.apache.log4j.{Logger => L4JLogger, Level => L4JLevel}
 
+import org.json4s._
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods._
+import scala.io.Source
+
 object Main extends Logging {
   private def playLogOnce(conf: SparkConf, args: Arguments, listener: BlockAccessListener) {
     (args.logFile, args.logDir) match {
@@ -101,11 +106,6 @@ object Main extends Logging {
   }
 
   def usageInfoFromJson(args: Arguments): UsageInfo = {
-    import org.json4s._
-    import org.json4s.JsonDSL._
-    import org.json4s.jackson.JsonMethods._
-    import scala.io.Source
-
     val theJson: String = Source.fromFile(args.jsonFile.get).mkString
    
     UsageInfo.fromJson(parse(theJson))
@@ -137,13 +137,16 @@ object Main extends Logging {
     }
 
     if (args.makeConfig) {
-      assert(!args.machineReadable)
+      val settings = args.makeConfigSettingsFile.map(
+        f => ProposedConfigSettings.fromJson(Source.fromFile(new File(f)).mkString)
+      ).getOrElse(ProposedConfigSettings.DEFAULT)
       assert(args.targetWorkers > 0 || args.targetMemoryPerWorker > 0)
       val config = if (args.targetWorkers > 0) {
-          ProposedConfig.forWorkerCount(usageInfo, args.targetCoresPerWorker, args.targetWorkers)
+          ProposedConfig.forWorkerCount(usageInfo, args.targetCoresPerWorker, args.targetWorkers, settings)
         } else {
           assert(args.targetMemoryPerWorker > 0)
-          ProposedConfig.forWorkerSize(usageInfo, args.targetCoresPerWorker, args.targetMemoryPerWorker)
+          ProposedConfig.forWorkerSize(usageInfo, args.targetCoresPerWorker, args.targetMemoryPerWorker,
+                                       settings)
         }
       println(config.configFile)
     } else if (args.machineReadable) {

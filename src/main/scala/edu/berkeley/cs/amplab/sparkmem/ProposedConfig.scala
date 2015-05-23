@@ -34,20 +34,6 @@ spark.executor.memory $workerJvmSizeStr
 """
 }
 
-case class ProposedConfigSettings(
-  val gcBonus: Double = 1.2,
-  val assumedSlack: Double = 0.9,
-
-  val portionExtraStorage: Double = 0.45,
-  val portionExtraUnrollStorage: Double = 0.1,
-  val portionExtraShuffle: Double = 0.25,
-  val portionExtraUnassignedJvm: Double = 0.05
-)
-
-object ProposedConfigSettings {
-  val DEFAULT = ProposedConfigSettings()
-}
-
 object ProposedConfig {
   def slackenConfig(
       orig: ProposedConfig,
@@ -97,19 +83,23 @@ object ProposedConfig {
     val assumedSlack = settings.assumedSlack
     val gcBonus = settings.gcBonus
 
-    val storageSize = (usageInfo.broadcastAllSize + usageInfo.rddActiveSize(cores) +
-                       usageInfo.rddAllSize / workers) / assumedSlack
-    val storageUnrollSize = usageInfo.rddActiveSize(cores) / assumedSlack
-    val shuffleSize = usageInfo.shuffleActiveSizeWithAdjust(cores) / assumedSlack
+    val storageSize = math.max(
+      (usageInfo.broadcastAllSize + usageInfo.rddActiveSize(cores) +
+       usageInfo.rddAllSize / workers) / assumedSlack,
+      cores * settings.minStorageSizePerCore
+    )
+    val storageUnrollSize = math.max(
+      usageInfo.rddActiveSize(cores) / assumedSlack,
+      cores * settings.minUnrollStorageSizePerCore
+    )
+    val shuffleSize = math.max(
+      usageInfo.shuffleActiveSizeWithAdjust(cores) / assumedSlack,
+      cores * settings.minShuffleSizePerCore
+    )
 
     val shuffleStorageSize = usageInfo.shuffleAllSize / workers
 
     val workerJvmSize = (storageSize + shuffleSize) * gcBonus
-
-    val storagePortion = storageSize.toDouble / workerJvmSize
-    val storageUnrollPortion = storageUnrollSize / storageSize
-
-    val shufflePortion = shuffleSize.toDouble / workerJvmSize
 
     return ProposedConfig(
       coresPerWorker = cores,

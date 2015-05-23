@@ -16,6 +16,7 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   var skipStacksExceptRDD: Boolean = false
   var debug: Boolean = false
   var makeConfig: Boolean = false
+  var makeConfigSettingsFile: Option[String] = None
   var targetWorkers: Int = 0
   var targetCoresPerWorker: Int = 0
   var targetMemoryPerWorker: Long = 0
@@ -70,6 +71,10 @@ class Arguments(conf: SparkConf, args: Array[String]) {
         makeConfig = true
         parse(tail)
 
+      case "--makeConfigSettingsFile" :: value :: tail =>
+        makeConfigSettingsFile = Some(value)
+        parse(tail)
+
       case "--targetWorkers" :: value :: tail =>
         targetWorkers = value.toInt
         parse(tail)
@@ -111,6 +116,8 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       |  --jsonFile FILE
       |    FILE storing log analysis summary. If --logFile or --logFile is specified, output will
       |    go here; otherwise input will be read from here.
+      |  --debug
+      |    Enable debug logging.
       |
       | Analyzing event logs:
       |  --logFile LOG-FILE
@@ -124,10 +131,16 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       |  --tasksInOrder
       |    Analyze as if tasks are exectued serially in task ID order. (Default: as if tasks are
       |    executed serially in task completion order.)
+      |  --skipStacks
+      |    Skip stack analyses entirely. (For debugging; prevents getting useful recommendations.)
+      |  --skipStacksExceptRDD
+      |    Skip stack analyses except for RDDs entirely. (For debugging.)
       |
       | Creating potential config files:
       |  --makeConfig
       |    Output a (partial) spark configuration properties file.
+      |  --makeConfigSettingsFile FILE
+      |    JSON file of settings besides targets specified below.
       |  --targetMemoryPerWorker MEMORY
       |    Amount of memory to assume per node for generating Spark config file.
       |    Either this or targetWorkers must be specified. Output file will
@@ -139,12 +152,10 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       |    will indicate memory requirement in a comment.
       |  --targetCoresPerWorker CORES
       |    Number of cores to assume for generating Spark config file
+      |
+      | Other output mode:
       |  --machineReadable
       |    Write raw data in a machine readable format (for graphs)
-      |  --skipStacks
-      |    Skip stack analyses.
-      |  --debug
-      |    Enable debug logging.
       """.stripMargin)
     System.exit(exitCode)
   }

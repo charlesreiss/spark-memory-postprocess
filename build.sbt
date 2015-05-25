@@ -11,7 +11,8 @@ mainClass := Some("edu.berkeley.cs.amplab.sparkmem.ParseLogs")
 libraryDependencies ++= Seq(
   "org.apache.spark" % "spark-core_2.10" % "1.4.0-memanalysis-SNAPSHOT" from
     "https://www.eecs.berkeley.edu/~charles/spark-core_2.10-1.4.0-memanalysis-SNAPSHOT-0521.jar",
-  "org.json4s" %% "json4s-jackson" % "3.2.11"
+  "org.json4s" %% "json4s-jackson" % "3.2.11",
+  "org.slf4j" % "slf4j-log4j12" % "1.7.12"
 )
 
 {

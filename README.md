@@ -7,8 +7,9 @@ that run.
 
 *STABILITY NOTE*: These tools are very much undertested, especially with respect to
 performance at analyzing largish logs, producing multi-worker configurations,
-and the reasonableness of shuffle storage recommendations. Use with caution. Please contact
-me (charles@eecs.berkeley.edu) with any questions or concerns.
+and the reasonableness of shuffle storage (non-JVM memory) recommendations.
+Use with caution. Please contact me (charles@eecs.berkeley.edu) with any
+questions, concerns, bug reports, weird behavior, etc.
 
 # Basic Usage
 - Get binaries of a version of Spark with instrumention. For the patched Spark, build from
@@ -50,7 +51,15 @@ me (charles@eecs.berkeley.edu) with any questions or concerns.
   if you intend to run the Spark program in local mode, you should adjust this.
 
   The configuration tool makes some assumptions which are configurable using a configuration
-  file like the one in `conf/make-config-settings.json.template`. The most notable settings are
-  `gcBonus`, which accounts for the extra memory to add to account for young generation space
-  (default: assume 1/3 of memory is young gen) and `assumedSlack`, which accounts for Spark's
-  `safetyFraction` making some memory unavailable.
+  file like the one in `conf/make-config.properties.template`, specified using the command-
+  line option --makeConfigProperties. See the comments in that file.
+
+# Likely problems
+
+## A note on compressed OOPS
+
+Since we reuse the size estimates Spark uses internally,
+the measurements of sizes will likely depend heavily on whether your JVM is configured to use
+compressed object pointers. In (64-bit) OpenJDK, this is enabled by default for heap sizes
+less than 64GB and unsupported otherwise. You can explicitly disable compressed object pointers
+in OpenJDK using `-XX:-UseCompressedOops`.

@@ -16,7 +16,7 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   var skipStacksExceptRDD: Boolean = false
   var debug: Boolean = false
   var makeConfig: Boolean = false
-  var makeConfigSettingsFile: Option[String] = None
+  var makeConfigProperties: Option[String] = None
   var targetWorkers: Int = 0
   var targetCoresPerWorker: Int = 0
   var targetMemoryPerWorker: Long = 0
@@ -74,8 +74,8 @@ class Arguments(conf: SparkConf, args: Array[String]) {
         makeConfig = true
         parse(tail)
 
-      case "--makeConfigSettingsFile" :: value :: tail =>
-        makeConfigSettingsFile = Some(value)
+      case "--makeConfigProperties" :: value :: tail =>
+        makeConfigProperties = Some(value)
         parse(tail)
 
       case "--targetWorkers" :: value :: tail =>
@@ -142,8 +142,8 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       | Creating potential config files:
       |  --makeConfig
       |    Output a (partial) spark configuration properties file.
-      |  --makeConfigSettingsFile FILE
-      |    JSON file of settings besides targets specified below.
+      |  --makeConfigProperties FILE
+      |    Properties file of settings besides targets specified below.
       |  --targetMemoryPerWorker MEMORY
       |    Amount of memory to assume per node for generating Spark config file.
       |    Either this or targetWorkers must be specified. Output file will

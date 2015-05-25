@@ -1,0 +1,15 @@
+# Extra space for GC. This should incldue the blow-up caused by the young generatoin
+gcBonus=1.5
+# Spark's adjustment (spark.stoarge.safetyFraction) presumably for misestimation of sizes.
+assumedSlack=0.9
+
+# Minimums in bytes
+minShuffleSizePerCore=16777216
+minStorageSizePerCore=16777216
+minUnrollStorageSizePerCore=4194304
+
+# After satistifying minimum memory requirements, how to divide spare memory
+portionExtraStorage=0.45
+portionExtraUnrollStorage=0.1
+portionExtraShuffle=0.25
+portionExtraUnassignedJvm=0.05

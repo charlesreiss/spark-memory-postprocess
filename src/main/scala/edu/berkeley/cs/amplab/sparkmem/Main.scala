@@ -137,8 +137,8 @@ object Main extends Logging {
     }
 
     if (args.makeConfig) {
-      val settings = args.makeConfigSettingsFile.map(
-        f => ProposedConfigSettings.fromJson(Source.fromFile(new File(f)).mkString)
+      val settings = args.makeConfigProperties.map(
+        f => ProposedConfigSettings.fromPropertiesFile(new File(f))
       ).getOrElse(ProposedConfigSettings.DEFAULT)
       assert(args.targetWorkers > 0 || args.targetMemoryPerWorker > 0)
       val config = if (args.targetWorkers > 0) {

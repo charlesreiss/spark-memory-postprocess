@@ -1,35 +1,33 @@
 package edu.berkeley.cs.amplab.sparkmem
 
-import org.json4s.jackson.Serialization
+import java.io.{File, FileInputStream}
+import java.util.Properties
 
-import org.json4s._
-import org.json4s.JsonDSL._
-import org.json4s.jackson.JsonMethods._
+class ProposedConfigSettings(private val properties: Properties) {
+  private def getLong(x: String, default: Long) = 
+    Option(properties.getProperty(x)).map(_.toLong).getOrElse(default)
+  private def getDouble(x: String, default: Double) = 
+    Option(properties.getProperty(x)).map(_.toDouble).getOrElse(default)
 
-case class ProposedConfigSettings(
-  val gcBonus: Double = 3.0 / 2.0,
-  val assumedSlack: Double = 0.9,
+  def gcBonus: Double = getDouble("gcBonus", 3.0 / 2.0)
+  def assumedSlack: Double = getDouble("assumedSlack", 0.9)
 
-  val minShuffleSizePerCore: Long = 16L * 1024L * 1024L,
-  val minStorageSizePerCore: Long = 16L * 1024L * 1024L,
-  val minUnrollStorageSizePerCore: Long = 4L * 1024L * 1024L,
+  def minShuffleSizePerCore: Long = getLong("minShuffleSizePerCore", 16L * 1024L * 1024L)
+  def minStorageSizePerCore: Long = getLong("minStorageSizePerCore", 16L * 1024L * 1024L)
+  def minUnrollStorageSizePerCore: Long = getLong("minUnrollSizePerCore", 4L * 1024L * 1024L)
 
-  val portionExtraStorage: Double = 0.45,
-  val portionExtraUnrollStorage: Double = 0.1,
-  val portionExtraShuffle: Double = 0.25,
-  val portionExtraUnassignedJvm: Double = 0.05
-) {
-  private implicit val jsonFormats = Serialization.formats(NoTypeHints)
-  def toJson: String = Serialization.write(this)
+  def portionExtraStorage: Double = getDouble("portionExtraStorage", 0.45)
+  def portionExtraUnrollStorage: Double = getDouble("portionExtraUnrollStorage", 0.1)
+  def portionExtraShuffle: Double = getDouble("portionExtraShuffle", 0.25)
+  def portionExtraUnassignedJvm: Double = getDouble("portionExtraUnassignedJvm", 0.05)
 }
 
 object ProposedConfigSettings {
-  private implicit val jsonFormats = Serialization.formats(NoTypeHints)
-  val DEFAULT = ProposedConfigSettings()
-  def fromJson(json: String): ProposedConfigSettings = Serialization.read[ProposedConfigSettings](json)
-
-  def main(args: Array[String]) {
-    println(DEFAULT.toJson)
+  val DEFAULT = new ProposedConfigSettings(new Properties)
+  def fromPropertiesFile(file: File): ProposedConfigSettings = {
+    val properties = new Properties()
+    properties.load(new FileInputStream(file))
+    new ProposedConfigSettings(properties)
   }
 }
 

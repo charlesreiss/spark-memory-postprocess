@@ -8,6 +8,8 @@ class ProposedConfigSettings(private val properties: Properties) {
     Option(properties.getProperty(x)).map(_.toLong).getOrElse(default)
   private def getDouble(x: String, default: Double) = 
     Option(properties.getProperty(x)).map(_.toDouble).getOrElse(default)
+  private def getBoolean(x: String, default: Boolean) =
+    Option(properties.getProperty(x)).map(_.toBoolean).getOrElse(default)
 
   def gcBonus: Double = getDouble("gcBonus", 3.0 / 2.0)
   def assumedSlack: Double = getDouble("assumedSlack", 0.9)
@@ -20,6 +22,8 @@ class ProposedConfigSettings(private val properties: Properties) {
   def portionExtraUnrollStorage: Double = getDouble("portionExtraUnrollStorage", 0.1)
   def portionExtraShuffle: Double = getDouble("portionExtraShuffle", 0.25)
   def portionExtraUnassignedJvm: Double = getDouble("portionExtraUnassignedJvm", 0.05)
+
+  def ignoreNonJvmSpace: Boolean = getBoolean("ignoreNonJvmSpace", false)
 }
 
 object ProposedConfigSettings {

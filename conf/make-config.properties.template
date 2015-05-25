@@ -13,3 +13,7 @@ portionExtraStorage=0.45
 portionExtraUnrollStorage=0.1
 portionExtraShuffle=0.25
 portionExtraUnassignedJvm=0.05
+
+# Don't try to deal with non-JVM space, like trying to keep on disk shuffle
+# files in page cache.
+ignoreNonJvmSpace=false

@@ -101,7 +101,11 @@ object ProposedConfig {
       cores * settings.minShuffleSizePerCore
     )
 
-    val shuffleStorageSize = usageInfo.shuffleAllSize / workers
+    val shuffleStorageSize = 
+      if (settings.ignoreNonJvmSpace)
+        0L
+      else
+        usageInfo.shuffleAllSize / workers
 
     val workerJvmSize = (storageSize + shuffleSize) * gcBonus
 

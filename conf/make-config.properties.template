@@ -17,3 +17,17 @@ portionExtraUnassignedJvm=0.05
 # Don't try to deal with non-JVM space, like trying to keep on disk shuffle
 # files in page cache.
 ignoreNonJvmSpace=false
+
+# Amount to assume partition sizes multiply by. For example, a factor of 2.0
+# assumes that partitions will be twice as large as the instrumented run.
+#
+# Note that no attempt is made to compensate for repartitioning make partition
+# sizes more (or less) uneven than in the sampled run.
+scalePartitionsBaseFactor=1.0
+
+# If true, assume partition sizes will be inversely proportional to total task
+# capacity configured on the cluster and that the sampled run had the base
+# task count specified number of tasks. This adjustment will be applied in addition
+# to the factor above.
+scalePartitionsBasedOnTasks=false
+scalePartitionsBaseTaskCount=1

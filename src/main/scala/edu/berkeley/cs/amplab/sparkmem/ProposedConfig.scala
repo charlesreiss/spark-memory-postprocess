@@ -8,7 +8,11 @@ case class ProposedConfig(
   val storageUnrollSize: Long,
   val shuffleStorageSize: Long,
   val workerJvmSize: Long,
-  val workerTotalSize: Long
+  val workerTotalSize: Long,
+
+  val shuffleSizeExplanation: String = "",
+  val storageSizeExplanation: String = "",
+  val storageUnrollSizeExplanation: String = ""
 ) {
   import Util.bytesToString
 
@@ -23,14 +27,14 @@ case class ProposedConfig(
   def configFile: String = s"""
 # Configuration for $workers workers each with $coresPerWorker tasks.
 ## Requires ${bytesToString(workerJvmSize)} (JVM) + ${bytesToString(shuffleStorageSize)} (page cache) per node
-St
-# ${bytesToString(storageSize)}
+
+# ${bytesToString(storageSize)} = ${storageSizeExplanation}
 spark.storage.memoryFraction $storagePortion
 
-# ${bytesToString(shuffleSize)}
+# ${bytesToString(shuffleSize)} = ${shuffleSizeExplanation}
 spark.shuffle.memoryFraction $shufflePortion
 
-# ${bytesToString(storageUnrollSize)}
+# ${bytesToString(storageUnrollSize)} = ${storageUnrollSizeExplanation}
 spark.storage.unrollFraction $storageUnrollPortion
 
 ## ${bytesToString(workerJvmSize)} including ${bytesToString(extraJvmSpace)} not for storage/shuffle
@@ -39,6 +43,8 @@ spark.executor.memory $workerJvmSizeStr
 }
 
 object ProposedConfig {
+  import Util.bytesToString
+
   def slackenConfig(
       orig: ProposedConfig,
       newWorkerTotalSize: Long,
@@ -59,7 +65,15 @@ object ProposedConfig {
       storageUnrollSize = orig.storageUnrollSize + extraUnrollStorage,
       shuffleStorageSize = orig.shuffleStorageSize + extraShuffleStorage,
       workerJvmSize = orig.workerJvmSize + extraJvmSpace,
-      workerTotalSize = orig.workerTotalSize + extraSpace
+      workerTotalSize = orig.workerTotalSize + extraSpace,
+      
+      storageSizeExplanation = s"${orig.storageSizeExplanation} + " +
+                               s"${bytesToString(extraStorage)} slack",
+      shuffleSizeExplanation = s"${orig.shuffleSizeExplanation} + " +
+                               s"${bytesToString(extraShuffle)} slack",
+      storageUnrollSizeExplanation = s"${orig.storageUnrollSizeExplanation} + " +
+                                     s"${bytesToString(extraShuffle)} slack"
+
     )
   }
 
@@ -86,20 +100,37 @@ object ProposedConfig {
       settings: ProposedConfigSettings = ProposedConfigSettings.DEFAULT): ProposedConfig = {
     val assumedSlack = settings.assumedSlack
     val gcBonus = settings.gcBonus
+    val explainSlack = f"${1.0 / assumedSlack * 100.0 - 100.0}%.0f%% safetyFraction"
+
+    val partitionScale  = settings.scalePartitionsFactorFor(cores * workers)
 
     val storageSize = math.max(
-      (usageInfo.broadcastAllSize + usageInfo.rddActiveSize(cores) +
+      (usageInfo.broadcastAllSize + usageInfo.rddActiveSize(cores) * partitionScale +
        usageInfo.rddAllSize / workers) / assumedSlack,
       cores * settings.minStorageSizePerCore
     )
+    val storageSizeExplanation =
+      s"${bytesToString(usageInfo.broadcastAllSize)} broadcast + " +
+      s"${bytesToString(usageInfo.rddActiveSize(cores))} active RDDs + " +
+      s"${bytesToString(usageInfo.rddAllSize / workers)} hot cached RDDs + " +
+      explainSlack
+
+    // FIXME(charles): Probably need a special case for very small storage sizes
     val storageUnrollSize = math.max(
-      usageInfo.rddActiveSize(cores) / assumedSlack,
+      usageInfo.rddActiveSize(cores) * partitionScale / assumedSlack,
       cores * settings.minUnrollStorageSizePerCore
     )
+    val storageUnrollSizeExplanation = 
+      s"${bytesToString(usageInfo.rddActiveSize(cores))} active RDDs + " +
+      explainSlack
+
     val shuffleSize = math.max(
-      usageInfo.shuffleActiveSizeWithAdjust(cores) / assumedSlack,
+      usageInfo.shuffleActiveSizeWithAdjust(cores) * partitionScale / assumedSlack,
       cores * settings.minShuffleSizePerCore
     )
+    val shuffleSizeExplanation =
+      s"${bytesToString(usageInfo.shuffleActiveSizeWithAdjust(cores))} + " +
+      explainSlack
 
     val shuffleStorageSize = 
       if (settings.ignoreNonJvmSpace)
@@ -117,7 +148,11 @@ object ProposedConfig {
       storageUnrollSize = storageUnrollSize.toLong,
       workerJvmSize = workerJvmSize.toLong,
       shuffleStorageSize = shuffleStorageSize,
-      workerTotalSize = workerJvmSize.toLong + shuffleStorageSize
+      workerTotalSize = workerJvmSize.toLong + shuffleStorageSize,
+
+      storageSizeExplanation = storageSizeExplanation,
+      storageUnrollSizeExplanation = storageUnrollSizeExplanation,
+      shuffleSizeExplanation = shuffleSizeExplanation
     )
   }
 }

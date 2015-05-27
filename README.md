@@ -29,8 +29,8 @@ questions, concerns, bug reports, weird behavior, etc.
 - The run the tool in this repository on the event log to produce a JSON file containing a summary
   of important metrics from the event log:
 
-    ./run --jsonFile program-summary.json --logFile the-event-log \
-          --consolidateRDDs --tasksInOrder
+        ./run --jsonFile program-summary.json --logFile the-event-log \
+              --consolidateRDDs --tasksInOrder
 
   I recommend using the option `--consolidateRDDs`, which should increase processing speed for
   runs with high partition counts by considering all partitions of RDD as a unit for some analyses.
@@ -50,11 +50,11 @@ questions, concerns, bug reports, weird behavior, etc.
 
 - Using the resulting JSON file, produce a configuration either by passing --targetWorkers:
 
-    ./run --jsonFile program-summary.json --makeConfig --targetWorkers 1
+        ./run --jsonFile program-summary.json --makeConfig --targetWorkers 1
 
   or by passing --targetMemoryPerWorker:
 
-    ./run --jsonFile program-summary.json --makeConfig --targetMemoryPerWorker 64g
+        ./run --jsonFile program-summary.json --makeConfig --targetMemoryPerWorker 64g
 
   The tool will indicate desired worker count with a comment. Note that the tool tries to set aside
   space for page cache for stored shuffle data, so you don't need to include that in

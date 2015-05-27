@@ -143,6 +143,7 @@ class BlockAccessListener extends SparkListener with Logging {
   private def recordTopSizes() {
     for ((blockId, size) <- blockSizes) {
       blockId match {
+        case RDDBlockId(_, -1) => {}
         case RDDBlockId(_, _) => topRddBlockSizes.insert(size)
         case ShuffleBlockId(_, _, _) => topShuffleDiskBlockSizes.insert(size)
         case _ => {}

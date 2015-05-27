@@ -126,3 +126,17 @@ assume that almost no space is required for tasks).
 
 Currently, this tool ignores explicitly unpersisted RDDs, which may cause overestimates
 in cases when the RDD would not be dropped by an LRU-like policy.
+
+## Large user allocations; user temporary copies of (nearly) whole partitions
+
+This tool doesn't even try to detect these cases. I don't think I have an example
+program which triggers this. Options if this is a problem include:
+
+* Guessing the additional space is proportional to the typical item size within
+an RDD (requires additional instrumentation);
+* Guessing the additional space is proportional to the size of an RDD partition
+(likely overestimate for the majority of applications which don't have this
+problem).
+* Strictly separating storage unroll space from non-unroll space assuming when
+these tasks are running the storage unroll space won't be requested and will
+be large enough to fit this temporary data.

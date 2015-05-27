@@ -55,8 +55,8 @@ case class UsageInfo(
     import UsageInfo.{costCurveToJson, topListToJson}
 
     ("rddCostCurve" -> costCurveToJson(rddCostCurve)) ~
-    ("broadcastCostCurve" -> costCurveToJson(rddCostCurve)) ~
-    ("shuffleCostCurve" -> costCurveToJson(rddCostCurve)) ~
+    ("broadcastCostCurve" -> costCurveToJson(broadcastCostCurve)) ~
+    ("shuffleCostCurve" -> costCurveToJson(shuffleCostCurve)) ~
     ("topRddSizes" -> topListToJson(topRddSizes)) ~
     ("topAggregatorMemorySizes" -> topListToJson(topAggregatorMemorySizes)) ~
     ("topAggregatorMemorySizesPairAdjust" -> topListToJson(topAggregatorDiskSizes)) ~

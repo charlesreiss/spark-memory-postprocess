@@ -24,6 +24,8 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   var tasksInOrder = false
   var consolidateRDDs = false
 
+  var replayEmpty = false
+
   def sanityCheck() {
     if (logDir.isDefined && logFile.isDefined) {
       System.err.println("Specify exactly one of --logDir and --logFile.")
@@ -98,6 +100,10 @@ class Arguments(conf: SparkConf, args: Array[String]) {
         skipStacksExceptRDD = true
         parse(tail)
 
+      case "--replayEmpty" :: tail =>
+        replayEmpty = true
+        parse(tail)
+
       case "--debug" :: tail =>
         debug = true
         parse(tail)
@@ -159,6 +165,11 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       | Other output mode:
       |  --csvOutput
       |    Write raw data in a machine readable format (for graphs)
+      |
+      | Weird debugging options:
+      |  --replayEmpty
+      |    Parse logs, but don't process the records within them (will produce bogus output). 
+      |    For assessing log parsing performance.
       """.stripMargin)
     System.exit(exitCode)
   }

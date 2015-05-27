@@ -26,7 +26,11 @@ object Main extends Logging {
         val fs = FileSystem.get(new Path(logFile).toUri, SparkHadoopUtil.get.newConfiguration(conf))
         val logInput = EventLoggingListener.openEventLog(new Path(logFile), fs)
         val replayBus = new ReplayListenerBus
-        replayBus.addListener(listener)
+        if (!args.replayEmpty) {
+          replayBus.addListener(listener)
+        } else {
+          logError("not adding listener")
+        }
         try {
           replayBus.replay(logInput, logFile)
         } finally {
@@ -56,7 +60,11 @@ object Main extends Logging {
         val logInputRaw = new BufferedInputStream(fs.open(logFile))
         val logInput = codec.map(c => c.compressedInputStream(logInputRaw)).getOrElse(logInputRaw)
         val replayBus = new ReplayListenerBus
-        replayBus.addListener(listener)
+        if (!args.replayEmpty) {
+          replayBus.addListener(listener)
+        } else {
+          logError("not adding listener")
+        }
         try {
           replayBus.replay(logInput, logDir)
         } finally {

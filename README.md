@@ -20,7 +20,10 @@ questions, concerns, bug reports, weird behavior, etc.
   of my fork on Spark on github, or use a prebuilt binary distribution from
   [here](https://www.eecs.berkeley.edu/~charles/spark-1.4.0-memanalysis-SNAPSHOT-0521-hadoop2.2.tar.gz).
 
-- Build these tools using `sbt/sbt assembly`.
+- Build these tools using `sbt/sbt assembly`. If you don't have a copy of the
+  patched spark installed locally, you may need Java 8 to complete this step.
+  (I've hosted a small Maven-copmatible repo on https://www.eecs.berkeley.edu, 
+  which has TLS settings which are incompatible with Java <8.)
 
 - Run the program under a version of Spark patched with extra monitoring. This
   patch is available from   When running the program, set the Spark configuration option `spark.extraMetrics.enabled` to `true`

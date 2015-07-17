@@ -20,11 +20,9 @@ libraryDependencies ++= Seq(
   libraryDependencies += "org.apache.hadoop" % "hadoop-client" % hadoopVersion
 }
 
-resolvers := Seq(
-  Resolver.mavenLocal,
-  Resolver.url("charles-cs-berkeley-spark-memanalysis", url("https://www.eecs.berkeley.edu/~charles/spark-deploy/")),
-  DefaultMavenRepository
-)
+resolvers += Resolver.mavenLocal
+
+resolvers += "charles-cs-berkeley-spark-memanalysis" at "https://www.eecs.berkeley.edu/~charles/spark-deploy/"
 
 fork in run := true
 

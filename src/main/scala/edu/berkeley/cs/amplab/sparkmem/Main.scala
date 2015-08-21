@@ -141,6 +141,7 @@ object Main extends Logging {
           writer.write(usageInfo.toJsonString)
           writer.close()
         }
+        case None => {}
       }
     }
 

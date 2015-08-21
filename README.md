@@ -83,7 +83,7 @@ in OpenJDK using `-XX:-UseCompressedOops`.
 This tool assumes that partitioning will not change between the example run and the run
 for the targetted configuration. If your partitioning will depend on the number of active
 tasks or you want to estimate the effect of adjusting the partition count on input, you can
-supply `scalePartitions*` settings in --makeCOnfigProperties file as shown in the template.
+supply `scalePartitions*` settings in --makeConfigProperties file as shown in the template.
 Note that these adjustments don't try to do anything smart about uneven partitioning.
 
 ## Page Cache
@@ -143,3 +143,15 @@ problem).
 * Strictly separating storage unroll space from non-unroll space assuming when
 these tasks are running the storage unroll space won't be requested and will
 be large enough to fit this temporary data.
+
+# Changelog
+
+## 21 August 2015
+
+* Fixed compilation errors I somehow didn't notice I committed (probably wasn't actually
+rebuilding things...?)
+
+## 17 July 2015
+
+* Updated sbt dependency URLs to use Maven-layout repo properly to get patched copy of Spark.
+Fixed some compilation errors that apparently indicate I wasn't rebuilding everything.

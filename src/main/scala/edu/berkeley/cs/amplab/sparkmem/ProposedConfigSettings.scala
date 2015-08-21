@@ -25,9 +25,9 @@ class ProposedConfigSettings(private val properties: Properties) {
 
   def ignoreNonJvmSpace: Boolean = getBoolean("ignoreNonJvmSpace", false)
 
-  def scalePartitionsBaseFactor: Double = getBoolean("scalePartitionsBaseFactor", 1.0)
+  def scalePartitionsBaseFactor: Double = getDouble("scalePartitionsBaseFactor", 1.0)
   def scalePartitionsBasedOnTasks: Boolean = getBoolean("scalePartitionsBasedOnTasks", false)
-  def scalePartitionsBaseTaskCount: Double = getBoolean("scalePartitionsBaseTaskCount", 1.0)
+  def scalePartitionsBaseTaskCount: Double = getDouble("scalePartitionsBaseTaskCount", 1.0)
 
   def scalePartitionsFactorFor(taskCount: Double): Double = {
     val taskScale =
@@ -35,7 +35,7 @@ class ProposedConfigSettings(private val properties: Properties) {
         scalePartitionsBaseTaskCount / taskCount
       else
         1.0
-    taskScale * scalePartitionsFactor
+    taskScale * scalePartitionsBaseFactor
   }
 }
 

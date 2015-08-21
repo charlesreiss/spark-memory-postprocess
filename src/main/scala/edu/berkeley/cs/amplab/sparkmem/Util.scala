@@ -11,7 +11,7 @@ object Util {
     val unit = UNITS.dropWhile(_._2 > 4. * bytes).headOption.getOrElse("" -> 1.)
     if (unit._1 == "") {
       return f"${bytes / unit._2}%.0f "
-    } else
+    } else {
       return f"${bytes / unit._2}%.2f ${unit._1}%s"
     }
   }

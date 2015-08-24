@@ -39,6 +39,16 @@ spark.storage.unrollFraction $storageUnrollPortion
 
 ## ${bytesToString(workerJvmSize)} including ${bytesToString(extraJvmSpace)} not for storage/shuffle
 spark.executor.memory $workerJvmSizeStr
+
+### Raw parameters represented by above config:
+#coresPerWorker=${coresPerWorker}
+#workers=$workers
+#shuffleSize=$shuffleSize
+#storageSize=$storageSize
+#storageUnrollSize=$storageUnrollSize
+#shuffleStorageSize=$shuffleStorageSize
+#workerJvmSize=$workerJvmSize
+#workerTotalSize=$workerTotalSize
 """
 }
 

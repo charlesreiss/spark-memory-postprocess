@@ -126,6 +126,8 @@ object Main extends Logging {
     BasicConfigurator.configure()
     if (args.debug) {
       L4JLogger.getRootLogger.setLevel(L4JLevel.DEBUG)
+    } else {
+      L4JLogger.getRootLogger.setLevel(L4JLevel.ERROR)
     }
 
     val usageInfo =

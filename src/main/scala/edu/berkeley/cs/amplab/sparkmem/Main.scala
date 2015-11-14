@@ -157,7 +157,7 @@ object Main extends Logging {
         } else {
           assert(args.targetMemoryPerWorker > 0)
           ProposedConfig.forWorkerSize(usageInfo, args.targetCoresPerWorker, args.targetMemoryPerWorker,
-                                       settings)
+                                       settings, noSlacken = args.noSlacken)
         }
       println(config.configFile)
     } else if (args.csvOutput) {

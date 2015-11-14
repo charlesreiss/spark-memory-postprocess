@@ -89,20 +89,24 @@ object ProposedConfig {
 
   def forWorkerSize(
       usageInfo: UsageInfo, cores: Int, targetWorkerSize: Long,
-      settings: ProposedConfigSettings = ProposedConfigSettings.DEFAULT): ProposedConfig = {
+      settings: ProposedConfigSettings = ProposedConfigSettings.DEFAULT,
+      noSlacken: Boolean = false): ProposedConfig = {
     def forCount(workers: Int) = forWorkerCount(usageInfo, cores, workers, settings)
     var lower = 1
     var upper = 1024 * 32
     while (lower < upper) {
-      val middle = (lower + upper) / 2
+      val middle = math.max((lower + upper) / 2, lower + 1)
       val middleConfig = forCount(middle)
       if (middleConfig.workerTotalSize > targetWorkerSize) {
-        upper = middle
+        upper = middle - 1
       } else {
         lower = middle
       }
     }
-    return slackenConfig(forCount(lower), targetWorkerSize, settings)
+    if (noSlacken)
+      return forCount(lower)
+    else
+      return slackenConfig(forCount(lower), targetWorkerSize, settings)
   }
 
   def forWorkerCount(

@@ -25,6 +25,7 @@ class Arguments(conf: SparkConf, args: Array[String]) {
   var consolidateRDDs = false
 
   var replayEmpty = false
+  var noSlacken = false
 
   def sanityCheck() {
     if (logDir.isDefined && logFile.isDefined) {
@@ -90,6 +91,10 @@ class Arguments(conf: SparkConf, args: Array[String]) {
 
       case "--targetMemoryPerWorker" :: value :: tail =>
         targetMemoryPerWorker = stringToBytes(value)
+        parse(tail)
+
+      case "--noSlacken" :: tail =>
+        noSlacken = true
         parse(tail)
 
       case "--skipStacks" :: tail =>
@@ -170,6 +175,9 @@ class Arguments(conf: SparkConf, args: Array[String]) {
       |  --replayEmpty
       |    Parse logs, but don't process the records within them (will produce bogus output). 
       |    For assessing log parsing performance.
+      |  --noSlacken
+      |    When generating a configuration for a target amount of memory per worker, don't try
+      |    use extra space available on the workers.
       """.stripMargin)
     System.exit(exitCode)
   }

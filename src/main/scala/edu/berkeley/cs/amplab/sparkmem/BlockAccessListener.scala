@@ -80,14 +80,40 @@ class BlockAccessListener extends SparkListener with Logging {
       blockId.isShuffle && access.accessType == BlockAccessType.Read
     }.map(_._1.asInstanceOf[ShuffleBlockId])
   }
+  private def skewRecordSizes(recordSize: Long, recordCount: Long): Long = {
+    // TODO: Skew for blow-up/down from serialization
+    if (recordCount == 0) {
+      return 0
+    } else if (recordCount == 1) {
+      return recordSize
+    } else {
+      // Imagine exponential distribution, estimate max quantile given
+      // known mean, cut-off at size
+      val mean = recordSize.toDouble / recordCount.toDouble
+      val quantile = (recordCount - 1.0) / recordCount
+      val estimate = -math.log(1.0 - quantile) * mean
+      // Max with mean * 2 to estimate probably a bit high for very small counts
+      return math.max(estimate, mean * 2).toLong
+    }
+  }
   private def accumulateShuffle(taskId: Long, metrics: TaskMetrics) {
     val writeSize = metrics.shuffleWriteMetrics.map(_.shuffleBytesWritten).getOrElse(0L)
+    val writeGroups = metrics.shuffleWriteMetrics.map(_.shuffleRecordsWritten).getOrElse(0L)
+    val readSize = metrics.shuffleReadMetrics.map(_.totalBytesRead).getOrElse(0L)
+    val readGroups = metrics.shuffleReadMetrics.map(_.recordsRead).getOrElse(0L)
     // FIXME: This includes BOTH ends of the shuffle
+    // FIXME: This does not include size with no aggregation, mostly; which should
+    //        probably be rocerded in Read/Write metrics (addt'l spark-side logging)
     val memorySize = metrics.shuffleMemoryMetrics.map(_.shuffleOutputBytes).getOrElse(0L)
     val memoryGroups = metrics.shuffleMemoryMetrics.map(_.shuffleOutputGroups).getOrElse(0L)
+    // Maximum of shuffle output + average size of a record (in case of huge records)
+    // TODO: We should measure the in-memory sizes of these even when no aggregation happens...
+    val effectiveMemorySize = math.max(memorySize, 
+      math.max(skewRecordSizes(writeSize, writeGroups),
+               skewRecordSizes(readSize, readGroups)))
     // TODO: When this isn't derived from hashtable size (shuffle.spill) we need to adjust it
     //       for hashtable overhead, too
-    val memorySizeAdjusted = memorySize - memoryGroups * PAIR_SIZE_ADJUSTMENT
+    val memorySizeAdjusted = math.max(effectiveMemorySize, memorySize - memoryGroups * PAIR_SIZE_ADJUSTMENT)
     var hadRead = false
     logDebug(s"Shuffle for TID $taskId: wrote $writeSize; produced $memorySize in memory")
     totalSpilledMemory += metrics.memoryBytesSpilled
@@ -100,7 +126,7 @@ class BlockAccessListener extends SparkListener with Logging {
       if (!seenShuffleReadPieces.contains(blockId)) {
         seenShuffleReadPieces += blockId
       }
-      topShuffleMemorySizes.insert(memorySize)
+      topShuffleMemorySizes.insert(effectiveMemorySize)
       topShuffleMemorySizesPairAdjust.insert(memorySizeAdjusted)
       hadRead = true
     }
@@ -111,7 +137,7 @@ class BlockAccessListener extends SparkListener with Logging {
         shuffleWriteSize(shuffleId) = shuffleWriteSize.getOrElse(shuffleId, 0L) + writeSize
         topShuffleDiskBlockSizes.insert(writeSize)
         if (!hadRead) {
-          topShuffleMemorySizes.insert(memorySize)
+          topShuffleMemorySizes.insert(effectiveMemorySize)
           topShuffleMemorySizesPairAdjust.insert(memorySizeAdjusted)
         }
       }

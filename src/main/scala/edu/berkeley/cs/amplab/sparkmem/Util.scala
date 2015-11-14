@@ -22,6 +22,7 @@ object Util {
     val unitPart = s.takeRight(1)
     val numPart = s.dropRight(1)
     var unit = unitPart match {
+      case ("b" | "B") => 1L
       case ("k" | "K") => 1024L
       case ("m" | "M") => 1024L * 1024L
       case ("g" | "G") => 1024L * 1024L * 1024L

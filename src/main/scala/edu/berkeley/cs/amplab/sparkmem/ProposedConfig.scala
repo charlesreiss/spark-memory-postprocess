@@ -10,6 +10,11 @@ case class ProposedConfig(
   val workerJvmSize: Long,
   val workerTotalSize: Long,
 
+  // Exist for debugging/evaluation only
+  val storageSizeActive: Option[Long] = None,
+  val storageSizeCached: Option[Long] = None,
+  val storageSizeBroadcast: Option[Long] = None,
+
   val shuffleSizeExplanation: String = "",
   val storageSizeExplanation: String = "",
   val storageUnrollSizeExplanation: String = ""
@@ -23,6 +28,12 @@ case class ProposedConfig(
   def storagePortion = storageSize.toDouble / workerJvmSize
   def storageUnrollPortion = storageUnrollSize.toDouble / storageSize
   def shufflePortion = shuffleSize.toDouble / workerJvmSize
+
+  private def maybeRawSetting(name: String, value: Option[Long]): String =
+    value match {
+      case Some(x) => s"#$name=$x\n"
+      case None => ""
+    }
 
   def configFile: String = s"""
 # Configuration for $workers workers each with $coresPerWorker tasks.
@@ -49,7 +60,10 @@ spark.executor.memory $workerJvmSizeStr
 #shuffleStorageSize=$shuffleStorageSize
 #workerJvmSize=$workerJvmSize
 #workerTotalSize=$workerTotalSize
-"""
+""" + 
+  maybeRawSetting("storageSizeCached", storageSizeCached) +
+  maybeRawSetting("storageSizeActive", storageSizeActive) +
+  maybeRawSetting("storageSizeBroadcast", storageSizeBroadcast)
 }
 
 object ProposedConfig {
@@ -118,6 +132,9 @@ object ProposedConfig {
 
     val partitionScale  = settings.scalePartitionsFactorFor(cores * workers)
 
+    val storageSizeBroadcast = usageInfo.broadcastAllSize
+    val storageSizeActive = usageInfo.rddActiveSize(cores) * partitionScale
+    val storageSizeCached = usageInfo.rddAllSize / workers
     val storageSize = math.max(
       (usageInfo.broadcastAllSize + usageInfo.rddActiveSize(cores) * partitionScale +
        usageInfo.rddAllSize / workers) / assumedSlack,
@@ -163,6 +180,10 @@ object ProposedConfig {
       workerJvmSize = workerJvmSize.toLong,
       shuffleStorageSize = shuffleStorageSize,
       workerTotalSize = workerJvmSize.toLong + shuffleStorageSize,
+
+      storageSizeCached = Some(storageSizeCached.toLong),
+      storageSizeActive = Some(storageSizeActive.toLong),
+      storageSizeBroadcast = Some(storageSizeBroadcast.toLong),
 
       storageSizeExplanation = storageSizeExplanation,
       storageUnrollSizeExplanation = storageUnrollSizeExplanation,

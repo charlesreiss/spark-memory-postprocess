@@ -109,14 +109,16 @@ object ProposedConfig {
     var lower = 1
     var upper = 1024 * 32
     while (lower < upper) {
-      val middle = math.max((lower + upper) / 2, lower + 1)
+      val middle = (lower + upper) / 2
       val middleConfig = forCount(middle)
       if (middleConfig.workerTotalSize > targetWorkerSize) {
-        upper = middle - 1
+        lower = middle + 1
       } else {
-        lower = middle
+        upper = middle
       }
     }
+    assert(forCount(lower).workerTotalSize < targetWorkerSize)
+    assert(lower == 1 || forCount(lower - 1).workerTotalSize > targetWorkerSize)
     if (noSlacken)
       return forCount(lower)
     else

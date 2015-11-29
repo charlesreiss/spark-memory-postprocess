@@ -103,7 +103,7 @@ object UsageInfo {
 
       topRddSizes = (json \ "topRddSizes").extract[List[Long]],
       topAggregatorMemorySizes = (json \ "topAggregatorMemorySizes").extract[List[Long]],
-      topAggregatorMemorySizesPairAdjust = (json \ "topMemorySizesPairAdjust").extract[List[Long]],
+      topAggregatorMemorySizesPairAdjust = (json \ "topAggregatorMemorySizesPairAdjust").extract[List[Long]],
       topAggregatorDiskSizes = (json \ "topAggregatorDiskSizes").extract[List[Long]],
 
       totalSpilledMemory = (json \ "totalSpilledMemory").extract[Long],

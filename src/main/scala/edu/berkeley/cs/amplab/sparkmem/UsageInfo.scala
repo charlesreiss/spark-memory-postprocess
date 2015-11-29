@@ -102,7 +102,7 @@ object UsageInfo {
       shuffleCostCurve = costCurveFromJson(json \ "shuffleCostCurve"),
 
       topRddSizes = (json \ "topRddSizes").extract[List[Long]],
-      topAggregatorMemorySizes = (json \ "topMemorySizes").extract[List[Long]],
+      topAggregatorMemorySizes = (json \ "topAggregatorMemorySizes").extract[List[Long]],
       topAggregatorMemorySizesPairAdjust = (json \ "topMemorySizesPairAdjust").extract[List[Long]],
       topAggregatorDiskSizes = (json \ "topAggregatorDiskSizes").extract[List[Long]],
 

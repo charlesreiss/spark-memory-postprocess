@@ -6,7 +6,7 @@ organization := "edu.berkeley.cs.amplab"
 
 scalaVersion := "2.10.4"
 
-mainClass := Some("edu.berkeley.cs.amplab.sparkmem.ParseLogs")
+mainClass := Some("edu.berkeley.cs.amplab.sparkmem.Main")
 
 libraryDependencies ++= Seq(
   "org.apache.spark" % "spark-core_2.10" % "1.4.0-memanalysis-SNAPSHOT",

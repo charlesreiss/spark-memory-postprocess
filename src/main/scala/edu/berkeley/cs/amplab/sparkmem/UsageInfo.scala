@@ -59,7 +59,7 @@ case class UsageInfo(
     ("shuffleCostCurve" -> costCurveToJson(shuffleCostCurve)) ~
     ("topRddSizes" -> topListToJson(topRddSizes)) ~
     ("topAggregatorMemorySizes" -> topListToJson(topAggregatorMemorySizes)) ~
-    ("topAggregatorMemorySizesPairAdjust" -> topListToJson(topAggregatorDiskSizes)) ~
+    ("topAggregatorMemorySizesPairAdjust" -> topListToJson(topAggregatorMemorySizesPairAdjust)) ~
     ("topAggregatorDiskSizes" -> topListToJson(topAggregatorDiskSizes)) ~
     ("totalSpilledMemory" -> totalSpilledMemory) ~
     ("totalSpilledDisk" -> totalSpilledDisk) ~

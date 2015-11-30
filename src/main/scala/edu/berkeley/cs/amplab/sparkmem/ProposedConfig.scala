@@ -158,7 +158,7 @@ object ProposedConfig {
       explainSlack
 
     val shuffleSize = math.max(
-      usageInfo.shuffleActiveSizeWithAdjust(cores) * partitionScale / assumedSlack,
+      usageInfo.shuffleActiveSize(cores) * partitionScale / assumedSlack,
       cores * settings.minShuffleSizePerCore
     )
     val shuffleSizeExplanation =

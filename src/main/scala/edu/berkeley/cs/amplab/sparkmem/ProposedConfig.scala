@@ -157,8 +157,11 @@ object ProposedConfig {
       s"${bytesToString(usageInfo.rddActiveSize(cores))} active RDDs + " +
       explainSlack
 
+    // FIXME(charles): Probably should choose with adjust versus not based on
+    //                 whether base run had shuffle spilling enabled.
     val shuffleSize = math.max(
-      usageInfo.shuffleActiveSize(cores) * partitionScale / assumedSlack,
+      math.max(usageInfo.shuffleActiveSize(cores),
+               usageInfo.shuffleActiveSizeWithAdjust(cores)) * partitionScale / assumedSlack,
       cores * settings.minShuffleSizePerCore
     )
     val shuffleSizeExplanation =

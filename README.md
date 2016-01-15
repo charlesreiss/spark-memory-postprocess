@@ -16,9 +16,10 @@ questions, concerns, bug reports, weird behavior, etc.
 ## Basic Usage
 - Get binaries of a version of Spark with instrumention. For the patched Spark, build from
   source using the the
-  [extra-monitoring branch](https://github.com/woggle/spark/tree/extra-monitoring)
+  [extra-monitoring branch](https://github.com/woggle/spark/tree/extra-monitoring) (1.4 based)
+  or (UNTESTED) [extra-monitoring-16 branch](https://github.com/woggle/spark/tree/extra-monitoring-16) (1.6 based)
   of my fork on Spark on github, or use a prebuilt binary distribution from
-  [here](https://www.eecs.berkeley.edu/~charles/spark-1.4.0-memanalysis-SNAPSHOT-0521-hadoop2.2.tar.gz).
+  [here (1.4)](https://www.eecs.berkeley.edu/~charles/spark-1.4.0-memanalysis-SNAPSHOT-0521-hadoop2.2.tar.gz) or [here (1.6)](https://www.eecs.berkeley.edu/~charles/spark-1.6.0-memanalysis-0-bin-2.2.0.tgz).
 
 - Build these tools using `sbt/sbt assembly`. If you don't have a copy of the
   patched spark installed locally, you may need Java 8 to complete this step.
